@@ -10,7 +10,8 @@ if [ "$PKG" = "brew" ]; then
 fi
 
 # apt path (Ubuntu 22.04 / 24.04)
-pkg_install fzf ripgrep bat zoxide plocate apache2-utils fd-find jq unzip zip ncdu
+# (plocate omitted: its daily updatedb walks the whole FS — little value on servers; use fd)
+pkg_install fzf ripgrep bat zoxide apache2-utils fd-find jq unzip zip ncdu
 
 # eza is only packaged from Ubuntu 24.04 onward; older releases need the
 # maintainer's apt repo.
