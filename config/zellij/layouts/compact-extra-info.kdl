@@ -1,0 +1,205 @@
+layout {
+    pane
+
+    pane size=1 borderless=true {
+        plugin location="file:~/.config/zellij/plugins/zjstatus.wasm" {
+            format_left  "{mode}#[fg=#DCD7BA,bg=#1F1F28,bold] {session} #[bg=#1F1F28]{tabs}"
+            format_center ""
+            format_right "#[fg=#FF9E3B,bg=#1F1F28]{command_stats} #[fg=#957FB8,bg=#1F1F28]{swap_layout} "
+            format_space "#[bg=#1F1F28]"
+
+            hide_frame_for_single_pane "true"
+
+            mode_locked       "#[bg=#C34043,fg=#16161D,bold]  #[bg=#1F1F28,fg=#C34043]"
+            mode_normal       "#[bg=#76946A,fg=#16161D,bold]  #[bg=#1F1F28,fg=#76946A]"
+            mode_resize       "#[bg=#FF9E3B,fg=#16161D,bold]  #[bg=#1F1F28,fg=#FF9E3B]"
+            mode_pane         "#[bg=#7E9CD8,fg=#16161D,bold]  #[bg=#1F1F28,fg=#7E9CD8]"
+            mode_tab          "#[bg=#7FB4CA,fg=#16161D,bold]  #[bg=#1F1F28,fg=#7FB4CA]"
+            mode_scroll       "#[bg=#957FB8,fg=#16161D,bold]  #[bg=#1F1F28,fg=#957FB8]"
+            mode_session      "#[bg=#FFA066,fg=#16161D,bold]  #[bg=#1F1F28,fg=#FFA066]"
+            mode_move         "#[bg=#FF9E3B,fg=#16161D,bold]  #[bg=#1F1F28,fg=#FF9E3B]"
+            mode_search       "#[bg=#957FB8,fg=#16161D,bold]  #[bg=#1F1F28,fg=#957FB8]"
+            mode_enter_search "#[bg=#957FB8,fg=#16161D,bold]  #[bg=#1F1F28,fg=#957FB8]"
+            mode_rename_tab   "#[bg=#7FB4CA,fg=#16161D,bold]  #[bg=#1F1F28,fg=#7FB4CA]"
+            mode_rename_pane  "#[bg=#7E9CD8,fg=#16161D,bold]  #[bg=#1F1F28,fg=#7E9CD8]"
+            mode_default_to_mode "locked"
+
+            tab_normal              "#[bg=#4C4C59,fg=#1F1F28]#[bg=#4C4C59,fg=#DCD7BA] {name} #[bg=#1F1F28,fg=#4C4C59]"
+            tab_normal_fullscreen   "#[bg=#4C4C59,fg=#1F1F28]#[bg=#4C4C59,fg=#DCD7BA] {name} [] #[bg=#1F1F28,fg=#4C4C59]"
+            tab_normal_sync         "#[bg=#4C4C59,fg=#1F1F28]#[bg=#4C4C59,fg=#DCD7BA] {name} <> #[bg=#1F1F28,fg=#4C4C59]"
+            tab_active              "#[bg=#7E9CD8,fg=#1F1F28]#[bg=#7E9CD8,fg=#16161D,bold] {name} #[bg=#1F1F28,fg=#7E9CD8]"
+            tab_active_fullscreen   "#[bg=#7E9CD8,fg=#1F1F28]#[bg=#7E9CD8,fg=#16161D,bold] {name} [] #[bg=#1F1F28,fg=#7E9CD8]"
+            tab_active_sync         "#[bg=#7E9CD8,fg=#1F1F28]#[bg=#7E9CD8,fg=#16161D,bold] {name} <> #[bg=#1F1F28,fg=#7E9CD8]"
+
+            tab_separator ""
+
+            command_stats_command    "~/.config/zellij/plugins/system-stats.sh"
+            command_stats_format     "{stdout}"
+            command_stats_interval   "10"
+        }
+    }
+
+    swap_tiled_layout name="vertical" {
+        tab max_panes=4 {
+            pane {
+                pane split_direction="vertical" {
+                    pane
+                    pane {
+                        children
+                    }
+                }
+            }
+            pane size=1 borderless=true {
+                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
+            }
+        }
+        tab max_panes=7 {
+            pane {
+                pane split_direction="vertical" {
+                    pane {
+                        children
+                    }
+                    pane {
+                        pane
+                        pane
+                        pane
+                        pane
+                    }
+                }
+            }
+            pane size=1 borderless=true {
+                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
+            }
+        }
+        tab max_panes=11 {
+            pane {
+                pane split_direction="vertical" {
+                    pane {
+                        children
+                    }
+                    pane {
+                        pane
+                        pane
+                        pane
+                        pane
+                    }
+                    pane {
+                        pane
+                        pane
+                        pane
+                        pane
+                    }
+                }
+            }
+            pane size=1 borderless=true {
+                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
+            }
+        }
+    }
+    swap_tiled_layout name="horizontal" {
+        tab max_panes=3 {
+            pane {
+                pane
+                pane
+            }
+            pane size=1 borderless=true {
+                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
+            }
+        }
+        tab max_panes=7 {
+            pane {
+                pane {
+                    pane split_direction="vertical" {
+                        children
+                    }
+                    pane split_direction="vertical" {
+                        pane
+                        pane
+                        pane
+                        pane
+                    }
+                }
+            }
+            pane size=1 borderless=true {
+                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
+            }
+        }
+        tab max_panes=11 {
+            pane {
+                pane {
+                    pane split_direction="vertical" {
+                        children
+                    }
+                    pane split_direction="vertical" {
+                        pane
+                        pane
+                        pane
+                        pane
+                    }
+                    pane split_direction="vertical" {
+                        pane
+                        pane
+                        pane
+                        pane
+                    }
+                }
+            }
+            pane size=1 borderless=true {
+                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
+            }
+        }
+    }
+    swap_tiled_layout name="stacked" {
+        tab min_panes=4 {
+            pane {
+                pane split_direction="vertical" {
+                    pane
+                    pane stacked=true {
+                        children
+                    }
+                }
+            }
+            pane size=1 borderless=true {
+                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
+            }
+        }
+    }
+    swap_floating_layout name="staggered" {
+        floating_panes {
+        }
+    }
+    swap_floating_layout name="enlarged" {
+        floating_panes max_panes=10 {
+            pane { height "90%"; width "90%"; x "5%"; y 1; }
+            pane { height "90%"; width "90%"; x "5%"; y 2; }
+            pane { height "90%"; width "90%"; x "5%"; y 3; }
+            pane { height "90%"; width "90%"; x "5%"; y 4; }
+            pane { height "90%"; width "90%"; x "5%"; y 5; }
+            pane { height "90%"; width "90%"; x "5%"; y 6; }
+            pane { height "90%"; width "90%"; x "5%"; y 7; }
+            pane { height "90%"; width "90%"; x "5%"; y 8; }
+            pane { height "90%"; width "90%"; x "5%"; y 9; }
+            pane { height "90%"; width "90%"; x 10; y 10; }
+        }
+    }
+    swap_floating_layout name="spread" {
+        floating_panes max_panes=1 {
+            pane { x "50%"; y "50%"; }
+        }
+        floating_panes max_panes=2 {
+            pane { width "45%"; x "1%"; y "25%"; }
+            pane { width "45%"; x "50%"; y "25%"; }
+        }
+        floating_panes max_panes=3 {
+            pane { height "45%"; width "45%"; y "55%"; }
+            pane { width "45%"; x "1%"; y "1%"; }
+            pane { width "45%"; x "50%"; y "1%"; }
+        }
+        floating_panes max_panes=4 {
+            pane { height "45%"; width "45%"; x "1%"; y "55%"; }
+            pane { height "45%"; width "45%"; x "50%"; y "55%"; }
+            pane { height "45%"; width "45%"; x "1%"; y "1%"; }
+            pane { height "45%"; width "45%"; x "50%"; y "1%"; }
+        }
+    }
+}

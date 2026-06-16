@@ -1,0 +1,6 @@
+# downloaded plugin binaries (fetched at install time)
+config/zellij/plugins/*.wasm
+
+# backups bootstrap leaves behind
+*.bak
+*.bak.*

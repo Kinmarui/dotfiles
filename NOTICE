@@ -1,0 +1,10 @@
+This project adapts CLI installation scripts from Omakub.
+
+  Omakub — https://github.com/basecamp/omakub
+  Copyright (c) 37signals
+  Licensed under the MIT License.
+
+The scripts under install/ (terminal-tools, mise, github-cli, docker,
+btop, fastfetch, lazygit, lazydocker, neovim, git-aliases, libraries) are
+derived from Omakub's install/terminal scripts, adapted to run standalone
+(no Omakub dependency) and to support Ubuntu 22.04 and 24.04.
