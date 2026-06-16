@@ -16,5 +16,23 @@ APT_UPDATED=0
 pkg_install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-ce-rootless-extras
 
 sudo usermod -aG docker "${USER}"
-echo '{"log-driver":"json-file","log-opts":{"max-size":"10m","max-file":"5"}}' | sudo tee /etc/docker/daemon.json >/dev/null
+
+# Limit container log size. Merge into any existing daemon.json (don't clobber a
+# host that already has tuned daemon settings).
+desired='{"log-driver":"json-file","log-opts":{"max-size":"10m","max-file":"5"}}'
+if [ -f /etc/docker/daemon.json ]; then
+  sudo cp /etc/docker/daemon.json "/etc/docker/daemon.json.bak.$(date +%Y%m%d%H%M%S)"
+  if has_cmd jq; then
+    merged="$(sudo cat /etc/docker/daemon.json | jq --argjson d "$desired" '. * $d')"
+    printf '%s\n' "$merged" | sudo tee /etc/docker/daemon.json >/dev/null
+    ok "merged log-size limits into existing /etc/docker/daemon.json (backed up)"
+    warn "restart docker for daemon.json changes to apply: sudo systemctl restart docker"
+  else
+    warn "/etc/docker/daemon.json exists and jq is missing — NOT modifying it."
+    warn "merge these settings manually, then restart docker: $desired"
+  fi
+else
+  echo "$desired" | sudo tee /etc/docker/daemon.json >/dev/null
+  ok "wrote /etc/docker/daemon.json with log-size limits"
+fi
 warn "log out and back in for docker group membership to take effect"

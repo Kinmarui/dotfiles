@@ -20,6 +20,11 @@ fi
 
 # Wire delta into git (re-applied on --config-only).
 if has_cmd delta || [ "${CONFIG_ONLY:-0}" = "1" ]; then
+  # Back up the existing global git config before changing keys (once).
+  if [ -f "$HOME/.gitconfig" ] && [ ! -f "$HOME/.gitconfig.pre-delta.bak" ]; then
+    cp "$HOME/.gitconfig" "$HOME/.gitconfig.pre-delta.bak"
+    ok "backed up ~/.gitconfig -> ~/.gitconfig.pre-delta.bak"
+  fi
   git config --global core.pager delta
   git config --global interactive.diffFilter "delta --color-only"
   git config --global delta.navigate true
