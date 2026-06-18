@@ -295,8 +295,13 @@ default_layout "compact-extra-info"
 // Options:
 //   - true (default, enabled)
 //   - false
-// 
-// pane_frames false
+//
+// Kept true (static): we do NOT use zjstatus's `hide_frame_for_single_pane`.
+// That option makes zjstatus toggle frames itself based on pane count, but on
+// zellij 0.44.3 the toggle resizes the pane, which fires another event, which
+// re-toggles — an endless resize / title flicker that appears when a second
+// pane opens. A static frame policy avoids the feedback loop entirely.
+pane_frames true
  
 // When attaching to an existing session with other users,
 // should the session be mirrored (true)
