@@ -271,10 +271,11 @@ default_layout "compact-extra-info"
  
 // The folder in which Zellij will look for layouts
 // (Requires restart)
-// 
-// layout_dir intentionally NOT set: zellij defaults to ~/.config/zellij/layouts
-// and resolves it natively. A literal "~" here is NOT expanded (breaks layout
-// lookup), and an absolute path isn't portable.
+// NOTE: zellij does NOT expand "~" here, so a tilde path breaks layout
+// lookup ("IoError: The layout was not found"). Omitting layout_dir makes
+// zellij use its default of <config_dir>/layouts (~/.config/zellij/layouts),
+// which is where the layout files already live.
+// layout_dir "/absolute/path/to/layouts"
  
 // The folder in which Zellij will look for themes
 // (Requires restart)
@@ -295,8 +296,7 @@ default_layout "compact-extra-info"
 //   - true (default, enabled)
 //   - false
 // 
-// hard-set (default is true) so nothing else toggles frames -> no flicker
-pane_frames true
+// pane_frames false
  
 // When attaching to an existing session with other users,
 // should the session be mirrored (true)
