@@ -8,8 +8,6 @@ layout {
             format_right "#[fg=#FF9E3B,bg=#1F1F28]{command_stats} #[fg=#957FB8,bg=#1F1F28]{swap_layout} "
             format_space "#[bg=#1F1F28]"
 
-            hide_frame_for_single_pane "true"
-
             mode_locked       "#[bg=#C34043,fg=#16161D,bold]  #[bg=#1F1F28,fg=#C34043]"
             mode_normal       "#[bg=#76946A,fg=#16161D,bold]  #[bg=#1F1F28,fg=#76946A]"
             mode_resize       "#[bg=#FF9E3B,fg=#16161D,bold]  #[bg=#1F1F28,fg=#FF9E3B]"
