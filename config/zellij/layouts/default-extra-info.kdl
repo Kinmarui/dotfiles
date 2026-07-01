@@ -1,6 +1,23 @@
 layout {
     default_tab_template {
         children
+        // tab list (styled like compact) as a second status line
+        pane size=1 borderless=true {
+            plugin location="file:~/.config/zellij/plugins/zjstatus.wasm" {
+                format_left  "#[bg=#1F1F28] {tabs}"
+                format_center ""
+                format_right ""
+                format_space "#[bg=#1F1F28]"
+
+                tab_normal              "#[bg=#4C4C59,fg=#1F1F28]#[bg=#4C4C59,fg=#DCD7BA] {name} #[bg=#1F1F28,fg=#4C4C59]"
+                tab_normal_fullscreen   "#[bg=#4C4C59,fg=#1F1F28]#[bg=#4C4C59,fg=#DCD7BA] {name} [] #[bg=#1F1F28,fg=#4C4C59]"
+                tab_normal_sync         "#[bg=#4C4C59,fg=#1F1F28]#[bg=#4C4C59,fg=#DCD7BA] {name} <> #[bg=#1F1F28,fg=#4C4C59]"
+                tab_active              "#[bg=#7E9CD8,fg=#1F1F28]#[bg=#7E9CD8,fg=#16161D,bold] {name} #[bg=#1F1F28,fg=#7E9CD8]"
+                tab_active_fullscreen   "#[bg=#7E9CD8,fg=#1F1F28]#[bg=#7E9CD8,fg=#16161D,bold] {name} [] #[bg=#1F1F28,fg=#7E9CD8]"
+                tab_active_sync         "#[bg=#7E9CD8,fg=#1F1F28]#[bg=#7E9CD8,fg=#16161D,bold] {name} <> #[bg=#1F1F28,fg=#7E9CD8]"
+                tab_separator ""
+            }
+        }
         pane size=1 split_direction="vertical" {
             pane borderless=true {
                 plugin location="zellij:status-bar"
