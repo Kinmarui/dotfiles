@@ -3,10 +3,12 @@ layout {
 
     pane size=1 borderless=true {
         plugin location="file:~/.config/zellij/plugins/zjstatus.wasm" {
-            format_left  "{mode}#[fg=#DCD7BA,bg=#1F1F28,bold] {session}{command_host} #[bg=#1F1F28]{tabs}"
+            format_left  "{mode}#[fg=#DCD7BA,bg=#1F1F28,bold] {session} #[bg=#1F1F28]{tabs}"
             format_center ""
             format_right "#[fg=#FF9E3B,bg=#1F1F28]{command_stats} #[fg=#957FB8,bg=#1F1F28]{swap_layout} "
             format_space "#[bg=#1F1F28]"
+
+            hide_frame_for_single_pane "true"
 
             mode_locked       "#[bg=#C34043,fg=#16161D,bold]  #[bg=#1F1F28,fg=#C34043]"
             mode_normal       "#[bg=#76946A,fg=#16161D,bold]  #[bg=#1F1F28,fg=#76946A]"
@@ -34,10 +36,6 @@ layout {
             command_stats_command    "~/.config/zellij/plugins/system-stats.sh"
             command_stats_format     "{stdout}"
             command_stats_interval   "10"
-
-            command_host_command     "~/.config/zellij/plugins/session-host.sh"
-            command_host_format      "{stdout}"
-            command_host_interval    "3600"
         }
     }
 
