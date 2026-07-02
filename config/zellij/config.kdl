@@ -293,7 +293,8 @@ layout_dir "~/.config/zellij/layouts"
 //   - true (default, enabled)
 //   - false
 // 
-// pane_frames false
+// hard-set (default is true) so nothing else toggles frames -> no flicker
+pane_frames true
  
 // When attaching to an existing session with other users,
 // should the session be mirrored (true)
