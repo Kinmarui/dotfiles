@@ -5,6 +5,9 @@ layout {
             pane borderless=true {
                 plugin location="zellij:status-bar"
             }
+            pane size=25 borderless=true {
+                plugin location="zellij:tab-bar"
+            }
             pane size=55 borderless=true {
                 plugin location="file:~/.config/zellij/plugins/zjstatus.wasm" {
                     format_left   ""
