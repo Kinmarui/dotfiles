@@ -3,7 +3,7 @@ layout {
 
     pane size=1 borderless=true {
         plugin location="file:~/.config/zellij/plugins/zjstatus.wasm" {
-            format_left  "{mode}#[fg=#DCD7BA,bg=#1F1F28,bold] {session} #[bg=#1F1F28]{tabs}"
+            format_left  "{mode}#[fg=#DCD7BA,bg=#1F1F28,bold] {session}{command_host} #[bg=#1F1F28]{tabs}"
             format_center ""
             format_right "#[fg=#FF9E3B,bg=#1F1F28]{command_stats} #[fg=#957FB8,bg=#1F1F28]{swap_layout} "
             format_space "#[bg=#1F1F28]"
@@ -34,6 +34,10 @@ layout {
             command_stats_command    "~/.config/zellij/plugins/system-stats.sh"
             command_stats_format     "{stdout}"
             command_stats_interval   "10"
+
+            command_host_command     "~/.config/zellij/plugins/session-host.sh"
+            command_host_format      "{stdout}"
+            command_host_interval    "3600"
         }
     }
 
@@ -48,7 +52,7 @@ layout {
                 }
             }
             pane size=1 borderless=true {
-                plugin location="zjstatus"
+                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
             }
         }
         tab max_panes=7 {
@@ -66,7 +70,7 @@ layout {
                 }
             }
             pane size=1 borderless=true {
-                plugin location="zjstatus"
+                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
             }
         }
         tab max_panes=11 {
@@ -90,7 +94,7 @@ layout {
                 }
             }
             pane size=1 borderless=true {
-                plugin location="zjstatus"
+                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
             }
         }
     }
@@ -101,7 +105,7 @@ layout {
                 pane
             }
             pane size=1 borderless=true {
-                plugin location="zjstatus"
+                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
             }
         }
         tab max_panes=7 {
@@ -119,7 +123,7 @@ layout {
                 }
             }
             pane size=1 borderless=true {
-                plugin location="zjstatus"
+                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
             }
         }
         tab max_panes=11 {
@@ -143,7 +147,7 @@ layout {
                 }
             }
             pane size=1 borderless=true {
-                plugin location="zjstatus"
+                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
             }
         }
     }
@@ -158,7 +162,7 @@ layout {
                 }
             }
             pane size=1 borderless=true {
-                plugin location="zjstatus"
+                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
             }
         }
     }

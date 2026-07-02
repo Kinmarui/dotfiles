@@ -227,40 +227,6 @@ plugins {
     status-bar location="zellij:status-bar"
     strider location="zellij:strider"
     tab-bar location="zellij:tab-bar"
-    // zjstatus bar config, defined once so compact's swap-layout bars share it
-    zjstatus location="file:~/.config/zellij/plugins/zjstatus.wasm" {
-        format_left  "{mode}#[fg=#DCD7BA,bg=#1F1F28,bold] {session} #[bg=#1F1F28]{tabs}"
-        format_center ""
-        format_right "#[fg=#FF9E3B,bg=#1F1F28]{command_stats} #[fg=#957FB8,bg=#1F1F28]{swap_layout} "
-        format_space "#[bg=#1F1F28]"
-
-        mode_locked       "#[bg=#C34043,fg=#16161D,bold]  #[bg=#1F1F28,fg=#C34043]"
-        mode_normal       "#[bg=#76946A,fg=#16161D,bold]  #[bg=#1F1F28,fg=#76946A]"
-        mode_resize       "#[bg=#FF9E3B,fg=#16161D,bold]  #[bg=#1F1F28,fg=#FF9E3B]"
-        mode_pane         "#[bg=#7E9CD8,fg=#16161D,bold]  #[bg=#1F1F28,fg=#7E9CD8]"
-        mode_tab          "#[bg=#7FB4CA,fg=#16161D,bold]  #[bg=#1F1F28,fg=#7FB4CA]"
-        mode_scroll       "#[bg=#957FB8,fg=#16161D,bold]  #[bg=#1F1F28,fg=#957FB8]"
-        mode_session      "#[bg=#FFA066,fg=#16161D,bold]  #[bg=#1F1F28,fg=#FFA066]"
-        mode_move         "#[bg=#FF9E3B,fg=#16161D,bold]  #[bg=#1F1F28,fg=#FF9E3B]"
-        mode_search       "#[bg=#957FB8,fg=#16161D,bold]  #[bg=#1F1F28,fg=#957FB8]"
-        mode_enter_search "#[bg=#957FB8,fg=#16161D,bold]  #[bg=#1F1F28,fg=#957FB8]"
-        mode_rename_tab   "#[bg=#7FB4CA,fg=#16161D,bold]  #[bg=#1F1F28,fg=#7FB4CA]"
-        mode_rename_pane  "#[bg=#7E9CD8,fg=#16161D,bold]  #[bg=#1F1F28,fg=#7E9CD8]"
-        mode_default_to_mode "locked"
-
-        tab_normal              "#[bg=#4C4C59,fg=#1F1F28]#[bg=#4C4C59,fg=#DCD7BA] {name} #[bg=#1F1F28,fg=#4C4C59]"
-        tab_normal_fullscreen   "#[bg=#4C4C59,fg=#1F1F28]#[bg=#4C4C59,fg=#DCD7BA] {name} [] #[bg=#1F1F28,fg=#4C4C59]"
-        tab_normal_sync         "#[bg=#4C4C59,fg=#1F1F28]#[bg=#4C4C59,fg=#DCD7BA] {name} <> #[bg=#1F1F28,fg=#4C4C59]"
-        tab_active              "#[bg=#7E9CD8,fg=#1F1F28]#[bg=#7E9CD8,fg=#16161D,bold] {name} #[bg=#1F1F28,fg=#7E9CD8]"
-        tab_active_fullscreen   "#[bg=#7E9CD8,fg=#1F1F28]#[bg=#7E9CD8,fg=#16161D,bold] {name} [] #[bg=#1F1F28,fg=#7E9CD8]"
-        tab_active_sync         "#[bg=#7E9CD8,fg=#1F1F28]#[bg=#7E9CD8,fg=#16161D,bold] {name} <> #[bg=#1F1F28,fg=#7E9CD8]"
-
-        tab_separator ""
-
-        command_stats_command    "~/.config/zellij/plugins/system-stats.sh"
-        command_stats_format     "{stdout}"
-        command_stats_interval   "10"
-    }
     welcome-screen location="zellij:session-manager" {
         welcome_screen true
     }
