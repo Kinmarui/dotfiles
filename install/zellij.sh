@@ -30,8 +30,10 @@ fi
 # --- config -------------------------------------------------------------------
 mkdir -p "$ZJ_DIR/themes" "$ZJ_DIR/layouts" "$ZJ_DIR/plugins"
 
-# config.kdl: symlinked (live-editable).
-[ -f "$src/config.kdl" ] && link "$src/config.kdl" "$ZJ_DIR/config.kdl"
+# config.kdl: RENDERED (copied), because the zjstatus plugin-alias config here
+# has command_* paths that zellij does not shell-expand — render rewrites ~/ to
+# $HOME/. (Edit config in the repo and re-run `bootstrap.sh --config-only`.)
+[ -f "$src/config.kdl" ] && render "$src/config.kdl" "$ZJ_DIR/config.kdl"
 
 # themes: link FILES (not the dir) so omakub's own theme files can coexist in
 # the same real directory instead of clobbering a symlinked dir.

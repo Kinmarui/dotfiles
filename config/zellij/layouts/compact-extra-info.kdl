@@ -48,7 +48,7 @@ layout {
                 }
             }
             pane size=1 borderless=true {
-                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
+                plugin location="zjstatus"
             }
         }
         tab max_panes=7 {
@@ -66,7 +66,7 @@ layout {
                 }
             }
             pane size=1 borderless=true {
-                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
+                plugin location="zjstatus"
             }
         }
         tab max_panes=11 {
@@ -90,7 +90,7 @@ layout {
                 }
             }
             pane size=1 borderless=true {
-                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
+                plugin location="zjstatus"
             }
         }
     }
@@ -101,7 +101,7 @@ layout {
                 pane
             }
             pane size=1 borderless=true {
-                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
+                plugin location="zjstatus"
             }
         }
         tab max_panes=7 {
@@ -119,7 +119,7 @@ layout {
                 }
             }
             pane size=1 borderless=true {
-                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
+                plugin location="zjstatus"
             }
         }
         tab max_panes=11 {
@@ -143,7 +143,7 @@ layout {
                 }
             }
             pane size=1 borderless=true {
-                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
+                plugin location="zjstatus"
             }
         }
     }
@@ -158,7 +158,7 @@ layout {
                 }
             }
             pane size=1 borderless=true {
-                plugin location="file:~/.config/zellij/plugins/zjstatus.wasm"
+                plugin location="zjstatus"
             }
         }
     }
