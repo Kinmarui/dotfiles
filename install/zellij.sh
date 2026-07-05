@@ -9,9 +9,10 @@ ZJSTATUS_VERSION="${ZJSTATUS_VERSION:-0.23.0}"
 # ZELLIJ_GLIBC: auto|1|0. The official Linux release is musl-static, and Rust's
 # std cannot read a file's btime on musl — which silently breaks zellij session
 # *resurrection* ("Failed to read created stamp of resurrection file" in the log,
-# sessions drop to EXITED). A glibc build fixes it. 'auto' (default) builds glibc
-# from source when running inside a container (LXC/Docker) — where this bites —
-# and downloads the fast musl release otherwise. Force with ZELLIJ_GLIBC=1 / 0.
+# sessions drop to EXITED). A glibc build fixes it. 'auto' (default): inside a
+# container (LXC/Docker) reuse an existing glibc zellij if present, else build it
+# from source; on bare metal/VM just download the fast musl release. It never
+# rebuilds when a matching glibc binary already exists. Force with ZELLIJ_GLIBC=1/0.
 ZELLIJ_GLIBC="${ZELLIJ_GLIBC:-auto}"
 
 ZJ_DIR="$HOME/.config/zellij"
@@ -26,6 +27,13 @@ is_container() {
 }
 zellij_ver()      { zellij --version 2>/dev/null | awk '{print $2}'; }
 zellij_is_glibc() { ldd "$(command -v zellij 2>/dev/null)" 2>/dev/null | grep -q 'libc\.so\.6'; }
+# zellij_bin_ok <path> <ver> : true if that binary is zellij <ver> AND glibc-linked.
+zellij_bin_ok() {
+  local b="$1" ver="$2"
+  [ -x "$b" ] || return 1
+  [ "$("$b" --version 2>/dev/null | awk '{print $2}')" = "$ver" ] || return 1
+  ldd "$b" 2>/dev/null | grep -q 'libc\.so\.6'
+}
 
 # Download the official musl-static release (fast; note: btime/resurrection off).
 zellij_install_musl() {
@@ -42,9 +50,10 @@ zellij_install_musl() {
 }
 
 # Build a glibc-linked zellij from crates.io (fixes musl btime/resurrection).
-# Pinned + --locked for reproducibility; builds to a temp root, then installs.
+# Pinned + --locked for reproducibility. Installs to ~/.cargo/bin (cargo default)
+# so a later run can reuse it without recompiling, then copies to /usr/local/bin.
 zellij_build_glibc() {
-  local ver="$1" root
+  local ver="$1"
   local -a CARGO
   if   has_cmd cargo; then CARGO=(cargo)
   elif has_cmd mise;  then CARGO=(mise exec rust@latest -- cargo)
@@ -52,14 +61,28 @@ zellij_build_glibc() {
   # vendored openssl+curl (default features) need a C toolchain + perl (+cmake).
   [ "$PKG" = "apt" ] && pkg_install build-essential pkg-config cmake perl
   log "building zellij $ver from source (glibc — fixes session resurrection); this takes a while"
-  root="$(mktemp -d)"
-  "${CARGO[@]}" install --locked --version "$ver" --root "$root" zellij
-  sudo install "$root/bin/zellij" /usr/local/bin/zellij
-  rm -rf "$root"
+  "${CARGO[@]}" install --locked --force --version "$ver" zellij   # -> ~/.cargo/bin/zellij
+  sudo install "$HOME/.cargo/bin/zellij" /usr/local/bin/zellij
   hash -r
-  zellij_is_glibc \
-    && ok "installed glibc zellij $(zellij_ver) -> /usr/local/bin/zellij" \
-    || { err "built binary is not glibc-linked"; return 1; }
+}
+
+# Ensure /usr/local/bin/zellij is a glibc build of $1, REUSING an existing glibc
+# binary (already installed, or a prior cargo build in ~/.cargo/bin) before paying
+# for a ~15-min compile.
+zellij_provide_glibc() {
+  local ver="$1" cand
+  if zellij_bin_ok /usr/local/bin/zellij "$ver"; then
+    ok "zellij $ver already installed (glibc)"; return 0
+  fi
+  for cand in "$HOME/.cargo/bin/zellij" "$(command -v zellij 2>/dev/null || true)"; do
+    [ -n "$cand" ] && zellij_bin_ok "$cand" "$ver" || continue
+    sudo install "$cand" /usr/local/bin/zellij; hash -r
+    ok "reused existing glibc zellij $ver from $cand (skipped source build)"; return 0
+  done
+  zellij_build_glibc "$ver"
+  zellij_bin_ok /usr/local/bin/zellij "$ver" \
+    && ok "installed glibc zellij $ver -> /usr/local/bin/zellij" \
+    || { err "resulting zellij is not glibc/$ver"; return 1; }
 }
 
 if [ "${CONFIG_ONLY:-0}" != "1" ]; then
@@ -72,11 +95,7 @@ if [ "${CONFIG_ONLY:-0}" != "1" ]; then
   cur="$(zellij_ver 2>/dev/null || true)"
 
   if [ "$want_glibc" = "1" ]; then
-    if [ "$cur" = "$ZELLIJ_VERSION" ] && zellij_is_glibc; then
-      ok "zellij $ZELLIJ_VERSION already installed (glibc)"
-    else
-      zellij_build_glibc "$ZELLIJ_VERSION"
-    fi
+    zellij_provide_glibc "$ZELLIJ_VERSION"      # reuse-then-build (see fn)
   else
     if [ "$cur" = "$ZELLIJ_VERSION" ] && ! zellij_is_glibc; then
       ok "zellij $ZELLIJ_VERSION already installed (musl)"
