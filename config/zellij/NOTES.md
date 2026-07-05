@@ -19,6 +19,19 @@ zellij `pane_frames` (default true) fighting zjstatus
 flicker/shake. Fix: set `pane_frames true` explicitly in config.kdl and remove
 `hide_frame_for_single_pane`. (Upstream: zjstatus #258.)
 
+## Status bar blank on a fresh install — missing permission grant
+zellij asks each plugin's permissions interactively on first load and caches the
+grant in `<cache>/permissions.kdl` (default `~/.cache/zellij/permissions.kdl`),
+keyed by the plugin's **resolved absolute location**
+(`file:$HOME/.config/zellij/plugins/zjstatus.wasm`). On a fresh install that file
+doesn't exist, so zjstatus loads permission-less and the bar renders blank —
+log shows `ERROR ... Failed to read permission cache file: No such file or
+directory`. Fix: `install/zellij.sh` seeds the grant (ReadApplicationState,
+ChangeApplicationState, RunCommands). It **appends** if our node is absent (never
+clobbers — zellij rewrites this file when other plugins are granted/denied).
+The cache is read at **plugin load**, so an already-running session must be
+restarted to pick up a newly-seeded grant (new sessions just work).
+
 ## Status bar blank on load until a keypress
 On zellij 0.44.3, `command_*` (and datetime) widgets only refresh on events,
 not on their interval — zellij dropped the incidental 1s refresh loop zjstatus

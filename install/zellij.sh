@@ -61,4 +61,29 @@ if [ ! -f "$ZJ_DIR/plugins/zjstatus.wasm" ]; then
     "https://github.com/dj95/zjstatus/releases/download/v${ZJSTATUS_VERSION}/zjstatus.wasm"
 fi
 
+# zjstatus permission grant: zellij asks for plugin permissions interactively on
+# first load and caches the grant in <cache>/permissions.kdl (keyed by the
+# plugin's resolved absolute location). On a fresh install that file is missing,
+# so the bar loads permission-less and renders blank ("Failed to read permission
+# cache file" in the log). Seed the grant so the status bar works on the very
+# first session. Keyed by absolute path (not shell-expanded by zellij), so we
+# generate it here rather than commit a hardcoded file. See NOTES.md.
+perm_cache="${XDG_CACHE_HOME:-$HOME/.cache}/zellij/permissions.kdl"
+perm_key="file:$ZJ_DIR/plugins/zjstatus.wasm"
+if [ ! -e "$perm_cache" ] || ! grep -qF "$perm_key" "$perm_cache" 2>/dev/null; then
+  mkdir -p "$(dirname "$perm_cache")"
+  # append (don't clobber) — zellij rewrites this file when other plugins are
+  # granted/denied; we only add our node if it isn't already present.
+  {
+    printf '"%s" {\n' "$perm_key"
+    printf '    ReadApplicationState\n'
+    printf '    ChangeApplicationState\n'
+    printf '    RunCommands\n'
+    printf '}\n'
+  } >> "$perm_cache"
+  ok "seeded zjstatus permission grant ($perm_cache)"
+else
+  ok "zjstatus permission grant already present"
+fi
+
 ok "zellij configured (config $([ -L "$ZJ_DIR/config.kdl" ] && echo linked), layouts rendered)"
