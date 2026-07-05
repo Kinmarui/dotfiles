@@ -61,16 +61,21 @@ if [ ! -f "$ZJ_DIR/plugins/zjstatus.wasm" ]; then
     "https://github.com/dj95/zjstatus/releases/download/v${ZJSTATUS_VERSION}/zjstatus.wasm"
 fi
 
-# zjstatus permission grant: zellij asks for plugin permissions interactively on
-# first load and caches the grant in <cache>/permissions.kdl (keyed by the
-# plugin's resolved absolute location). On a fresh install that file is missing,
-# so the bar loads permission-less and renders blank ("Failed to read permission
-# cache file" in the log). Seed the grant so the status bar works on the very
-# first session. Keyed by absolute path (not shell-expanded by zellij), so we
-# generate it here rather than commit a hardcoded file. See NOTES.md.
+# zjstatus permission grant: zellij normally asks for plugin permissions on first
+# load and caches the grant in <cache>/permissions.kdl. But zjstatus loads from a
+# layout, and layout/background plugins can't display the permission dialog on
+# zellij 0.44.x (upstream #4982) — so the bar loads permission-less and renders
+# blank forever ("permission 'ReadApplicationState' is not allowed" in the log).
+# Seed the grant so the bar works on the very first session.
+#
+# The cache KEY must be exactly `plugin.location.to_string()` as zellij computes
+# it: RunPluginLocation::File's Display is the *bare, shell-expanded path* — NO
+# "file:" prefix and ~ expanded (zellij-utils layout.rs). (The plugin *cache dir*
+# is named "file:<path>" via a different method — do not copy that form here.)
+# We generate the file rather than commit it because the key is an absolute path.
 perm_cache="${XDG_CACHE_HOME:-$HOME/.cache}/zellij/permissions.kdl"
-perm_key="file:$ZJ_DIR/plugins/zjstatus.wasm"
-if [ ! -e "$perm_cache" ] || ! grep -qF "$perm_key" "$perm_cache" 2>/dev/null; then
+perm_key="$ZJ_DIR/plugins/zjstatus.wasm"   # bare expanded path, no scheme prefix
+if [ ! -e "$perm_cache" ] || ! grep -qF "\"$perm_key\"" "$perm_cache" 2>/dev/null; then
   mkdir -p "$(dirname "$perm_cache")"
   # append (don't clobber) — zellij rewrites this file when other plugins are
   # granted/denied; we only add our node if it isn't already present.
