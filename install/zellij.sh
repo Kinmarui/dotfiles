@@ -6,24 +6,83 @@
 # zellij 0.44.x.
 ZELLIJ_VERSION="${ZELLIJ_VERSION:-0.44.3}"
 ZJSTATUS_VERSION="${ZJSTATUS_VERSION:-0.23.0}"
+# ZELLIJ_GLIBC: auto|1|0. The official Linux release is musl-static, and Rust's
+# std cannot read a file's btime on musl — which silently breaks zellij session
+# *resurrection* ("Failed to read created stamp of resurrection file" in the log,
+# sessions drop to EXITED). A glibc build fixes it. 'auto' (default) builds glibc
+# from source when running inside a container (LXC/Docker) — where this bites —
+# and downloads the fast musl release otherwise. Force with ZELLIJ_GLIBC=1 / 0.
+ZELLIJ_GLIBC="${ZELLIJ_GLIBC:-auto}"
 
 ZJ_DIR="$HOME/.config/zellij"
 src="$(config_dir zellij)"
 
 # --- binary -------------------------------------------------------------------
+# is_container: true inside LXC / Docker / podman / systemd-nspawn.
+is_container() {
+  if has_cmd systemd-detect-virt; then systemd-detect-virt --container --quiet && return 0; fi
+  { [ -f /run/.containerenv ] || [ -f /.dockerenv ]; } && return 0
+  grep -qaE 'container=(lxc|docker|podman)' /proc/1/environ 2>/dev/null
+}
+zellij_ver()      { zellij --version 2>/dev/null | awk '{print $2}'; }
+zellij_is_glibc() { ldd "$(command -v zellij 2>/dev/null)" 2>/dev/null | grep -q 'libc\.so\.6'; }
+
+# Download the official musl-static release (fast; note: btime/resurrection off).
+zellij_install_musl() {
+  local ver="$1"
+  log "installing zellij $ver (musl release, have: $(zellij_ver 2>/dev/null || echo none))"
+  cd /tmp
+  curl -fsSLo zellij.tar.gz \
+    "https://github.com/zellij-org/zellij/releases/download/v${ver}/zellij-${ARCH}-unknown-linux-musl.tar.gz"
+  tar -xf zellij.tar.gz zellij
+  sudo install zellij /usr/local/bin/zellij
+  rm -f zellij.tar.gz zellij
+  cd - >/dev/null
+  ok "installed musl zellij $(zellij_ver)"
+}
+
+# Build a glibc-linked zellij from crates.io (fixes musl btime/resurrection).
+# Pinned + --locked for reproducibility; builds to a temp root, then installs.
+zellij_build_glibc() {
+  local ver="$1" root
+  local -a CARGO
+  if   has_cmd cargo; then CARGO=(cargo)
+  elif has_cmd mise;  then CARGO=(mise exec rust@latest -- cargo)
+  else err "need cargo or mise to build glibc zellij (enable 'mise' in manifest.conf)"; return 1; fi
+  # vendored openssl+curl (default features) need a C toolchain + perl (+cmake).
+  [ "$PKG" = "apt" ] && pkg_install build-essential pkg-config cmake perl
+  log "building zellij $ver from source (glibc — fixes session resurrection); this takes a while"
+  root="$(mktemp -d)"
+  "${CARGO[@]}" install --locked --version "$ver" --root "$root" zellij
+  sudo install "$root/bin/zellij" /usr/local/bin/zellij
+  rm -rf "$root"
+  hash -r
+  zellij_is_glibc \
+    && ok "installed glibc zellij $(zellij_ver) -> /usr/local/bin/zellij" \
+    || { err "built binary is not glibc-linked"; return 1; }
+}
+
 if [ "${CONFIG_ONLY:-0}" != "1" ]; then
-  current="$(zellij --version 2>/dev/null | awk '{print $2}')"
-  if [ "$current" != "$ZELLIJ_VERSION" ]; then
-    log "installing zellij $ZELLIJ_VERSION (have: ${current:-none})"
-    cd /tmp
-    curl -fsSLo zellij.tar.gz \
-      "https://github.com/zellij-org/zellij/releases/download/v${ZELLIJ_VERSION}/zellij-${ARCH}-unknown-linux-musl.tar.gz"
-    tar -xf zellij.tar.gz zellij
-    sudo install zellij /usr/local/bin/zellij
-    rm -f zellij.tar.gz zellij
-    cd - >/dev/null
+  want_glibc=0
+  case "$ZELLIJ_GLIBC" in
+    1|yes|true)  want_glibc=1 ;;
+    0|no|false)  want_glibc=0 ;;
+    *)           is_container && want_glibc=1 ;;   # auto
+  esac
+  cur="$(zellij_ver 2>/dev/null || true)"
+
+  if [ "$want_glibc" = "1" ]; then
+    if [ "$cur" = "$ZELLIJ_VERSION" ] && zellij_is_glibc; then
+      ok "zellij $ZELLIJ_VERSION already installed (glibc)"
+    else
+      zellij_build_glibc "$ZELLIJ_VERSION"
+    fi
   else
-    ok "zellij $ZELLIJ_VERSION already installed"
+    if [ "$cur" = "$ZELLIJ_VERSION" ] && ! zellij_is_glibc; then
+      ok "zellij $ZELLIJ_VERSION already installed (musl)"
+    else
+      zellij_install_musl "$ZELLIJ_VERSION"
+    fi
   fi
 fi
 

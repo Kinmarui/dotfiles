@@ -3,6 +3,20 @@
 Hard-won lessons configuring these layouts (zellij 0.44.3, zjstatus v0.18.1).
 Read this before editing the layouts or debugging the status bar.
 
+## musl release breaks session resurrection (btime) — build glibc in containers
+The official zellij Linux release is **musl-static**, and Rust's `std` can't read
+a file's creation time (btime) on musl — `Metadata::created()` returns
+*"creation time is not available on this platform currently"* on **any** host.
+zellij needs btime for session **resurrection**, so with the musl binary the log
+spams `Failed to read created stamp of resurrection file` and sessions drop to
+`EXITED` instead of resurrecting. This is NOT a Proxmox/LXC/filesystem problem —
+coreutils `stat` reads btime fine here (ext4 + kernel `statx` work); it's purely
+the musl binary. zellij ships **no** glibc Linux release, and Ubuntu 24.04
+doesn't package zellij, so the only glibc build that runs on our glibc (2.39) is
+a from-source `cargo install`. `install/zellij.sh` does this automatically inside
+a container (see `ZELLIJ_GLIBC`). Verify the fix: `ldd $(which zellij)` shows
+`libc.so.6` (glibc) and the resurrection error is gone from the log.
+
 ## Layout changes only apply to NEW sessions
 zellij bakes the layout into a session at creation. Editing a layout file does
 **not** change existing/resurrected sessions. Test with a fresh session:
