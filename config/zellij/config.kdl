@@ -272,7 +272,9 @@ default_layout "compact-extra-info"
 // The folder in which Zellij will look for layouts
 // (Requires restart)
 // 
-layout_dir "~/.config/zellij/layouts"
+// layout_dir intentionally NOT set: zellij defaults to ~/.config/zellij/layouts
+// and resolves it natively. A literal "~" here is NOT expanded (breaks layout
+// lookup), and an absolute path isn't portable.
  
 // The folder in which Zellij will look for themes
 // (Requires restart)
