@@ -45,3 +45,11 @@ config per bar instead.
 `command_*_command` values are run directly — `~` is NOT expanded. Use absolute
 paths, or render `~/` → `$HOME/` at install time (see `install/zellij.sh`,
 which renders layouts). `location="file:~/..."` *is* expanded by zellij.
+
+## Don't set `layout_dir` to a `~` path — omit it
+zellij does NOT expand a leading `~` in `layout_dir`, and `install/zellij.sh`
+**symlinks** config.kdl (doesn't render it), so a `layout_dir "~/.config/zellij/layouts"`
+makes zellij look in a literal `~` directory and fail:
+`IoError: The layout was not found, File: compact-extra-info`.
+Fix: **omit `layout_dir` entirely** — zellij defaults to `~/.config/zellij/layouts`
+and resolves it natively. (An absolute path also works but isn't portable.)
