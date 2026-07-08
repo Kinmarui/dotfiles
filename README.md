@@ -4,8 +4,17 @@ Bootstrap a fresh Ubuntu machine — CLI tools + their configuration — with on
 clone and one command:
 
 ```bash
-git clone git@github.com:Kinmarui/dotfiles.git ~/dotfiles
+# HTTPS (default) — this repo is public, so this works with no local SSH key
+git clone https://github.com/Kinmarui/dotfiles.git ~/dotfiles
 ~/dotfiles/bootstrap.sh
+```
+
+If you'll also be editing this repo and pushing from the same host, clone over
+SSH instead (needs a key added to GitHub, or `gh auth login` + `gh auth setup-git`
+first — otherwise the clone itself fails on a host with no key configured):
+
+```bash
+git clone git@github.com:Kinmarui/dotfiles.git ~/dotfiles
 ```
 
 Targets **Ubuntu 22.04 and 24.04** (apt). A macOS/Homebrew path exists for most
@@ -42,6 +51,28 @@ Installers are **idempotent** — re-running skips what's already present.
    with `has_cmd`; gate config-only re-runs with `[ "${CONFIG_ONLY:-0}" = 1 ]`).
 2. If it ships config, put it in `config/<name>/` and apply it from the script.
 3. Add `<name>` to `manifest.conf`.
+
+## Shell enhancements
+
+The `shell` app (`config/shell/`, adapted from omakub's bash defaults,
+CLI-only) wires up aliases, functions, and runtime hooks that the other apps
+install but don't activate on their own — before this, `~/.bashrc` never
+called `mise activate`, `zoxide init`, or fzf's key-bindings, so those tools
+sat installed but dormant.
+
+- **Runtime hooks** — activates `mise`, `zoxide`, and fzf's
+  key-bindings/completion in `~/.bashrc`.
+- **Aliases** — `lzg`/`lzd` (lazygit/lazydocker), `g` (git), `n` (open the cwd,
+  or given args, in Neovim), `cd` → zoxide's `z`, `ff` (fzf with a bat file
+  preview), `ls`/`lt` via `eza`.
+- **bat/fd naming fixups** — Ubuntu's apt packages install these as
+  `batcat`/`fdfind` (name clashes with other packages); the aliases resolve to
+  whichever name is actually present.
+- **Functions** — `compress`/`decompress` (tar.gz).
+
+Config is symlinked into `~/.config/dotfiles/shell` (private overlay wins,
+same as every other app — see below) and sourced from `~/.bashrc` via one
+idempotent line added by `install/shell.sh`.
 
 ## Public + private overlay
 
