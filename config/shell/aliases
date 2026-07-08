@@ -1,0 +1,43 @@
+# File system
+alias ls='eza -lh --group-directories-first --icons=auto'
+alias lsa='ls -a'
+alias lt='eza --tree --level=2 --long --icons --git'
+alias lta='lt -a'
+
+# Ubuntu's apt packages install bat/fd as batcat/fdfind (name clashes with
+# other packages); brew and other distros ship the upstream names directly.
+if ! command -v bat >/dev/null 2>&1 && command -v batcat >/dev/null 2>&1; then
+  alias bat='batcat'
+fi
+if ! command -v fd >/dev/null 2>&1 && command -v fdfind >/dev/null 2>&1; then
+  alias fd='fdfind'
+fi
+
+if command -v fzf >/dev/null 2>&1; then
+  _preview_cmd='cat'
+  command -v bat >/dev/null 2>&1 && _preview_cmd='bat --style=numbers --color=always'
+  command -v batcat >/dev/null 2>&1 && _preview_cmd='batcat --style=numbers --color=always'
+  alias ff="fzf --preview '$_preview_cmd {}'"
+  unset _preview_cmd
+fi
+
+# `z` (jump to frecent dir) is defined by `zoxide init bash` in ./init, sourced
+# after this file — the alias only matters once you actually type `cd`.
+command -v zoxide >/dev/null 2>&1 && alias cd='z'
+
+# Directories
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+
+# Tools
+n() { if [ "$#" -eq 0 ]; then nvim .; else nvim "$@"; fi; }
+alias g='git'
+command -v docker >/dev/null 2>&1 && alias d='docker'
+command -v lazygit >/dev/null 2>&1 && alias lzg='lazygit'
+command -v lazydocker >/dev/null 2>&1 && alias lzd='lazydocker'
+
+# Git
+alias gcm='git commit -m'
+alias gcam='git commit -a -m'
+alias gcad='git commit -a --amend'

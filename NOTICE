@@ -8,3 +8,8 @@ The scripts under install/ (terminal-tools, mise, github-cli, docker,
 btop, fastfetch, lazygit, lazydocker, neovim, git-aliases, libraries) are
 derived from Omakub's install/terminal scripts, adapted to run standalone
 (no Omakub dependency) and to support Ubuntu 22.04 and 24.04.
+
+config/shell/{aliases,functions,init} are derived from Omakub's
+defaults/bash/{aliases,functions,init}, trimmed to drop desktop-only
+functionality (GNOME app folders, .desktop launchers, display/keyboard
+fixes) since this repo is CLI-only.

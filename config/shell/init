@@ -1,0 +1,22 @@
+# Runtime hooks — sourced last (after aliases/functions) since some of the
+# above, e.g. `alias cd='z'`, call functions these define.
+if command -v mise &> /dev/null; then
+  eval "$(mise activate bash)"
+fi
+
+if command -v zoxide &> /dev/null; then
+  eval "$(zoxide init bash)"
+fi
+
+if command -v fzf &> /dev/null; then
+  if [[ -f /usr/share/bash-completion/completions/fzf ]]; then
+    source /usr/share/bash-completion/completions/fzf
+  fi
+  if [[ -f /usr/share/doc/fzf/examples/key-bindings.bash ]]; then
+    source /usr/share/doc/fzf/examples/key-bindings.bash
+  fi
+  # brew (macOS) ships fzf's shell integration under its own prefix instead.
+  if command -v brew &> /dev/null && [[ -f "$(brew --prefix)/opt/fzf/shell/key-bindings.bash" ]]; then
+    source "$(brew --prefix)/opt/fzf/shell/key-bindings.bash"
+  fi
+fi

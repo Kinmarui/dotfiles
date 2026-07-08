@@ -1,0 +1,8 @@
+# Entry point sourced from ~/.bashrc (see install/shell.sh). Order matters:
+# aliases/functions before init — init defines the `z` function that
+# `alias cd='z'` (in aliases) depends on at call time.
+d="$(dirname "${BASH_SOURCE[0]}")"
+source "$d/aliases"
+source "$d/functions"
+source "$d/init"
+unset d
