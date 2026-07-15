@@ -10,7 +10,7 @@ if [ "${CONFIG_ONLY:-0}" != "1" ] && ! has_cmd delta; then
     arch="$(dpkg --print-architecture)"   # amd64 | arm64
     cd /tmp
     curl -fsSLo git-delta.deb "https://github.com/dandavison/delta/releases/download/${ver}/git-delta_${ver}_${arch}.deb"
-    sudo apt-get install -y ./git-delta.deb
+    $SUDO apt-get install -y ./git-delta.deb
     rm -f git-delta.deb
     cd - >/dev/null
   fi

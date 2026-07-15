@@ -7,9 +7,9 @@ if [ "${CONFIG_ONLY:-0}" != "1" ] && ! has_cmd nvim; then
   cd /tmp
   curl -fsSLo nvim.tar.gz "https://github.com/neovim/neovim/releases/download/stable/nvim-linux-${arch}.tar.gz"
   tar -xf nvim.tar.gz
-  sudo install "nvim-linux-${arch}/bin/nvim" /usr/local/bin/nvim
-  sudo cp -R "nvim-linux-${arch}/lib" /usr/local/
-  sudo cp -R "nvim-linux-${arch}/share" /usr/local/
+  $SUDO install "nvim-linux-${arch}/bin/nvim" /usr/local/bin/nvim
+  $SUDO cp -R "nvim-linux-${arch}/lib" /usr/local/
+  $SUDO cp -R "nvim-linux-${arch}/share" /usr/local/
   rm -rf "nvim-linux-${arch}" nvim.tar.gz
   cd - >/dev/null
   pkg_install luarocks tree-sitter-cli || warn "luarocks/tree-sitter-cli not installed (optional)"

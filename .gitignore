@@ -4,3 +4,6 @@ config/zellij/plugins/*.wasm
 # backups bootstrap leaves behind
 *.bak
 *.bak.*
+
+# local secrets (never commit — this repo is public)
+secrets

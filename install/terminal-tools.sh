@@ -13,19 +13,19 @@ fi
 # (plocate omitted: its daily updatedb walks the whole FS — little value on servers; use fd)
 pkg_install fzf ripgrep bat zoxide apache2-utils fd-find jq unzip zip ncdu
 
-# eza is only packaged from Ubuntu 24.04 onward; older releases need the
-# maintainer's apt repo.
+# eza is packaged on Ubuntu 24.04+ and Debian 13 (trixie); older Ubuntu and
+# Debian 12 (bookworm) lack it and need the maintainer's apt repo.
 if ! has_cmd eza; then
-  if ubuntu_ge 24.04; then
+  if ubuntu_ge 24.04 || debian_ge 13; then
     pkg_install eza
   else
     log "eza not in $OS_VERSION_ID repos — adding deb.gierens.de"
-    sudo mkdir -p /etc/apt/keyrings
+    $SUDO mkdir -p /etc/apt/keyrings
     wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc \
-      | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
+      | $SUDO gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
     echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" \
-      | sudo tee /etc/apt/sources.list.d/gierens.list >/dev/null
-    sudo chmod 0644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.list
+      | $SUDO tee /etc/apt/sources.list.d/gierens.list >/dev/null
+    $SUDO chmod 0644 /etc/apt/keyrings/gierens.gpg /etc/apt/sources.list.d/gierens.list
     APT_UPDATED=0; pkg_install eza
   fi
 fi

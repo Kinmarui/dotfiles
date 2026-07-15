@@ -10,6 +10,6 @@ arch="$(release_arch)"
 cd /tmp
 curl -fsSLo lazydocker.tar.gz "https://github.com/jesseduffield/lazydocker/releases/latest/download/lazydocker_${ver}_Linux_${arch}.tar.gz"
 tar -xf lazydocker.tar.gz lazydocker
-sudo install lazydocker /usr/local/bin
+$SUDO install lazydocker /usr/local/bin
 rm -f lazydocker.tar.gz lazydocker
 cd - >/dev/null

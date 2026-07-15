@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build toolchain + common dev headers. Adapted from omakub install/terminal/libraries.sh.
 [ "${CONFIG_ONLY:-0}" = "1" ] && return 0
-[ "$PKG" = "apt" ] || { warn "libraries.sh targets apt/Ubuntu only — skipping"; return 0; }
+[ "$PKG" = "apt" ] || { warn "libraries.sh targets apt (Ubuntu/Debian) only — skipping"; return 0; }
 
 pkg_install \
   build-essential pkg-config autoconf bison clang rustc pipx \
