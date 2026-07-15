@@ -43,7 +43,7 @@ zellij_install_musl() {
   curl -fsSLo zellij.tar.gz \
     "https://github.com/zellij-org/zellij/releases/download/v${ver}/zellij-${ARCH}-unknown-linux-musl.tar.gz"
   tar -xf zellij.tar.gz zellij
-  sudo install zellij /usr/local/bin/zellij
+  $SUDO install zellij /usr/local/bin/zellij
   rm -f zellij.tar.gz zellij
   cd - >/dev/null
   ok "installed musl zellij $(zellij_ver)"
@@ -62,7 +62,7 @@ zellij_build_glibc() {
   [ "$PKG" = "apt" ] && pkg_install build-essential pkg-config cmake perl
   log "building zellij $ver from source (glibc — fixes session resurrection); this takes a while"
   "${CARGO[@]}" install --locked --force --version "$ver" zellij   # -> ~/.cargo/bin/zellij
-  sudo install "$HOME/.cargo/bin/zellij" /usr/local/bin/zellij
+  $SUDO install "$HOME/.cargo/bin/zellij" /usr/local/bin/zellij
   hash -r
 }
 
@@ -76,7 +76,7 @@ zellij_provide_glibc() {
   fi
   for cand in "$HOME/.cargo/bin/zellij" "$(command -v zellij 2>/dev/null || true)"; do
     [ -n "$cand" ] && zellij_bin_ok "$cand" "$ver" || continue
-    sudo install "$cand" /usr/local/bin/zellij; hash -r
+    $SUDO install "$cand" /usr/local/bin/zellij; hash -r
     ok "reused existing glibc zellij $ver from $cand (skipped source build)"; return 0
   done
   zellij_build_glibc "$ver"

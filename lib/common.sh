@@ -25,6 +25,16 @@ err()  { printf '%s  x %s%s\n' "$C_RED" "$*" "$C_RST" >&2; }
 # --- predicates ---------------------------------------------------------------
 has_cmd() { command -v "$1" >/dev/null 2>&1; }
 
+# --- privilege escalation -----------------------------------------------------
+# Use $SUDO (never a bare `sudo`) for anything needing root: it is empty when we
+# are already root — common on Debian minimal and in containers — and "sudo"
+# otherwise. Debian's minimal install ships neither sudo nor a sudo group, so
+# bootstrap.sh preflights the "non-root and no sudo" case with a clear message.
+if [ "$(id -u)" = 0 ]; then SUDO=""
+elif has_cmd sudo;   then SUDO="sudo"
+else                      SUDO=""
+fi
+
 # --- OS / arch detection ------------------------------------------------------
 OS_ID=""; OS_VERSION_ID=""; OS_CODENAME=""
 if [ -r /etc/os-release ]; then
@@ -35,11 +45,12 @@ fi
 ARCH="$(uname -m)"   # x86_64 | aarch64
 
 is_ubuntu() { [ "$OS_ID" = "ubuntu" ]; }
-# ubuntu_ge 24.04  -> true if running Ubuntu >= 24.04
-ubuntu_ge() {
-  [ "$OS_ID" = "ubuntu" ] || return 1
-  [ "$(printf '%s\n%s\n' "$1" "$OS_VERSION_ID" | sort -V | head -1)" = "$1" ]
-}
+is_debian() { [ "$OS_ID" = "debian" ]; }
+# ver_ge MIN HAVE -> true if HAVE >= MIN (version-sorted; ver_ge 24.04 22.04 -> false)
+ver_ge() { [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" = "$1" ]; }
+# ubuntu_ge 24.04 -> true iff running Ubuntu >= 24.04; debian_ge 13 likewise.
+ubuntu_ge() { [ "$OS_ID" = "ubuntu" ] || return 1; ver_ge "$1" "$OS_VERSION_ID"; }
+debian_ge() { [ "$OS_ID" = "debian" ] || return 1; ver_ge "$1" "$OS_VERSION_ID"; }
 # Map uname arch to the {x86_64|arm64} naming most GitHub release assets use.
 release_arch() {
   case "$ARCH" in
@@ -56,11 +67,11 @@ if has_cmd apt-get; then PKG="apt"
 elif has_cmd brew; then PKG="brew"
 fi
 APT_UPDATED=0
-apt_update_once() { [ "$APT_UPDATED" = "1" ] && return 0; sudo apt-get update -y; APT_UPDATED=1; }
+apt_update_once() { [ "$APT_UPDATED" = "1" ] && return 0; $SUDO apt-get update -y; APT_UPDATED=1; }
 # pkg_install <pkg...> : install OS packages via the detected manager.
 pkg_install() {
   case "$PKG" in
-    apt)  apt_update_once; sudo apt-get install -y "$@" ;;
+    apt)  apt_update_once; $SUDO apt-get install -y "$@" ;;
     brew) brew install "$@" ;;
     *)    err "no supported package manager (need apt or brew)"; return 1 ;;
   esac

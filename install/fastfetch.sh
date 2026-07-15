@@ -5,7 +5,10 @@ has_cmd fastfetch && { ok "fastfetch already installed"; return 0; }
 
 if [ "$PKG" = "brew" ]; then pkg_install fastfetch; return 0; fi
 
-# PPA provides fastfetch for both 22.04 and 24.04.
-sudo apt-get install -y software-properties-common
-sudo add-apt-repository -y ppa:zhangsongcui3371/fastfetch
+# Debian 13 (trixie) ships fastfetch in its main repos; PPAs are Ubuntu-only.
+if is_debian; then pkg_install fastfetch; return 0; fi
+
+# Ubuntu: a PPA provides fastfetch for both 22.04 and 24.04.
+$SUDO apt-get install -y software-properties-common
+$SUDO add-apt-repository -y ppa:zhangsongcui3371/fastfetch
 APT_UPDATED=0; pkg_install fastfetch

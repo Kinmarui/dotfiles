@@ -1,13 +1,24 @@
 # dotfiles
 
-Bootstrap a fresh Ubuntu machine — CLI tools + their configuration — with one
-clone and one command:
+Bootstrap a fresh Ubuntu or Debian machine — CLI tools + their configuration —
+with one clone and one command:
 
 ```bash
 # HTTPS (default) — this repo is public, so this works with no local SSH key
 git clone https://github.com/Kinmarui/dotfiles.git ~/dotfiles
 ~/dotfiles/bootstrap.sh
 ```
+
+**Debian minimal ships neither `git` nor `sudo`.** On a fresh Debian install,
+install both first (as root — `su -`), then clone:
+
+```bash
+apt update && apt install -y git sudo
+usermod -aG sudo <youruser>     # then log out and back in for it to apply
+```
+
+(If you run the bootstrap *as root*, sudo isn't needed — it calls commands
+directly. It's only required when bootstrapping as a normal user.)
 
 If you'll also be editing this repo and pushing from the same host, clone over
 SSH instead (needs a key added to GitHub, or `gh auth login` + `gh auth setup-git`
@@ -17,8 +28,8 @@ first — otherwise the clone itself fails on a host with no key configured):
 git clone git@github.com:Kinmarui/dotfiles.git ~/dotfiles
 ```
 
-Targets **Ubuntu 22.04 and 24.04** (apt). A macOS/Homebrew path exists for most
-tools but is secondary. CLI only — no desktop apps.
+Targets **Ubuntu 22.04 / 24.04 and Debian 13 (trixie)** (apt). A macOS/Homebrew
+path exists for most tools but is secondary. CLI only — no desktop apps.
 
 ## How it works
 
@@ -65,7 +76,7 @@ sat installed but dormant.
 - **Aliases** — `lzg`/`lzd` (lazygit/lazydocker), `g` (git), `n` (open the cwd,
   or given args, in Neovim), `cd` → zoxide's `z`, `ff` (fzf with a bat file
   preview), `ls`/`lt` via `eza`.
-- **bat/fd naming fixups** — Ubuntu's apt packages install these as
+- **bat/fd naming fixups** — Debian/Ubuntu apt packages install these as
   `batcat`/`fdfind` (name clashes with other packages); the aliases resolve to
   whichever name is actually present.
 - **Functions** — `compress`/`decompress` (tar.gz).

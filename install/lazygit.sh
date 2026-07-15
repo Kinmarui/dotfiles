@@ -10,6 +10,6 @@ arch="$(release_arch)"   # x86_64 | arm64
 cd /tmp
 curl -fsSLo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${ver}_Linux_${arch}.tar.gz"
 tar -xf lazygit.tar.gz lazygit
-sudo install lazygit /usr/local/bin
+$SUDO install lazygit /usr/local/bin
 rm -f lazygit.tar.gz lazygit
 cd - >/dev/null
