@@ -13,10 +13,10 @@ fi
 # (plocate omitted: its daily updatedb walks the whole FS — little value on servers; use fd)
 pkg_install fzf ripgrep bat zoxide apache2-utils fd-find jq unzip zip ncdu
 
-# eza is packaged on Ubuntu 24.04+ and Debian 13 (trixie); older Ubuntu needs
-# the maintainer's apt repo.
+# eza is packaged on Ubuntu 24.04+ and Debian 13 (trixie); older Ubuntu and
+# Debian 12 (bookworm) lack it and need the maintainer's apt repo.
 if ! has_cmd eza; then
-  if ubuntu_ge 24.04 || is_debian; then
+  if ubuntu_ge 24.04 || debian_ge 13; then
     pkg_install eza
   else
     log "eza not in $OS_VERSION_ID repos — adding deb.gierens.de"

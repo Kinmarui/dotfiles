@@ -28,8 +28,9 @@ first — otherwise the clone itself fails on a host with no key configured):
 git clone git@github.com:Kinmarui/dotfiles.git ~/dotfiles
 ```
 
-Targets **Ubuntu 22.04 / 24.04 and Debian 13 (trixie)** (apt). A macOS/Homebrew
-path exists for most tools but is secondary. CLI only — no desktop apps.
+Targets **Ubuntu 22.04 / 24.04 and Debian 12 (bookworm) / 13 (trixie)** (apt).
+A macOS/Homebrew path exists for most tools but is secondary. CLI only — no
+desktop apps. (On Debian 12, `fastfetch` isn't packaged and is skipped.)
 
 ## How it works
 

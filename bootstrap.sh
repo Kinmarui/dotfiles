@@ -65,9 +65,9 @@ fi
 if is_ubuntu; then
   if ! ubuntu_ge 22.04; then warn "Ubuntu $OS_VERSION_ID is older than 22.04 and untested"; fi
 elif is_debian; then
-  if ! debian_ge 13; then warn "Debian $OS_VERSION_ID is older than 13 and untested"; fi
+  if ! debian_ge 12; then warn "Debian $OS_VERSION_ID is older than 12 and untested"; fi
 else
-  warn "this repo targets Ubuntu 22.04/24.04 and Debian 13; detected '${OS_ID:-unknown} ${OS_VERSION_ID:-}' — apt paths may not apply"
+  warn "this repo targets Ubuntu 22.04/24.04 and Debian 12/13; detected '${OS_ID:-unknown} ${OS_VERSION_ID:-}' — apt paths may not apply"
 fi
 [ -n "$PKG" ] || warn "no apt/brew detected; package installs will fail"
 # Debian minimal ships neither sudo nor a sudo group. We need root or sudo for apt.
