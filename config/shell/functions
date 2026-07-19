@@ -4,38 +4,51 @@ alias decompress='tar -xzf'
 
 # --- remote servers ----------------------------------------------------------
 # Reach servers whose Azure network security group denies inbound by default:
-# open this machine's *current* public IP on the target's NSG, then connect.
-# Reconstructed from shell history — the whitelist logic is inferred, so verify
-# `az_vm_allow_current_ip` against a real VM before relying on it.
+# repoint this machine's personal allow rule(s) at the *current* public IP on the
+# target's NSG, then connect.
 #
 # All identity/topology is private and lives in the dotfiles-private overlay
 # (shell/private.sh, symlinked next to this file). It is expected to define:
 #     AZ_SSH_USER="<az local user>"
 #     declare -gA DMOSH_HOSTS=( [name]="<vm-name> <resource-group>" ... )
+#     AZ_IP_RULES=( "<rule-name> <priority> <protocol> <port(s)>" ... )
 # Without it, the whitelist step is skipped and dmosh just falls back to mosh.
 declare -gA DMOSH_HOSTS 2>/dev/null
 
-# az_vm_allow_current_ip <vm> [resource-group] : add an inbound allow rule for
-# this machine's current public IP to every NSG in the VM's resource group,
-# covering SSH (22/tcp) and mosh (60000-61000/udp). RG defaults to "<vm>-rg".
+# az_vm_allow_current_ip <vm> [resource-group] : point each rule in AZ_IP_RULES
+# at this machine's current public IP, on every NSG in the VM's resource group.
+# Existing rules are updated in place; missing ones are created. RG defaults to
+# "<vm>-rg". These are named, long-lived per-user rules (one IP at a time), not
+# a new rule per IP — so reconnecting from a new network just moves the source.
 az_vm_allow_current_ip() {
   local vm="$1" rg="${2:-${1}-rg}"
   [ -n "$vm" ] || { echo "usage: az_vm_allow_current_ip <vm> [resource-group]" >&2; return 2; }
   command -v az >/dev/null 2>&1 || { echo "az CLI not installed" >&2; return 1; }
   local ip; ip="$(curl -fsS https://api.ipify.org)" \
     || { echo "could not determine current public IP" >&2; return 1; }
-  local rule="allow-${AZ_SSH_USER:-$USER}-${ip//./-}" nsg found=0
+  # Default to a single mosh rule if the overlay didn't define any.
+  local -a rules=("${AZ_IP_RULES[@]}")
+  [ "${#rules[@]}" -gt 0 ] && [ -n "${rules[0]}" ] \
+    || rules=("AllowMoshFrom${AZ_SSH_USER:-$USER} 1100 Udp 60000-61000")
+  echo "current IP: ${ip}"
+  local nsg name prio proto ports spec found=0
   while IFS= read -r nsg; do
     [ -n "$nsg" ] || continue
     found=1
-    if az network nsg rule create -g "$rg" --nsg-name "${nsg##*/}" \
-         --name "$rule" --priority 300 --direction Inbound --access Allow \
-         --protocol '*' --source-address-prefixes "${ip}/32" \
-         --destination-port-ranges 22 60000-61000 >/dev/null 2>&1; then
-      echo "whitelisted ${ip} on ${nsg##*/}"
-    else
-      echo "note: rule '${rule}' unchanged on ${nsg##*/} (may already exist)" >&2
-    fi
+    for spec in "${rules[@]}"; do
+      read -r name prio proto ports <<<"$spec"
+      # Update the rule's source to our IP; create it (with full spec) if absent.
+      if az network nsg rule update -g "$rg" --nsg-name "${nsg##*/}" --name "$name" \
+           --source-address-prefixes "${ip}/32" >/dev/null 2>&1 \
+      || az network nsg rule create -g "$rg" --nsg-name "${nsg##*/}" --name "$name" \
+           --priority "$prio" --direction Inbound --access Allow --protocol "$proto" \
+           --source-address-prefixes "${ip}/32" --destination-port-ranges "$ports" \
+           >/dev/null 2>&1; then
+        echo "  ${name}: ${ip} on ${nsg##*/}"
+      else
+        echo "  FAILED to set ${name} on ${nsg##*/}" >&2
+      fi
+    done
   done < <(az network nic list -g "$rg" \
              --query "[].networkSecurityGroup.id" -o tsv 2>/dev/null | sort -u)
   [ "$found" = 1 ] || { echo "no NSG found in resource group '${rg}'" >&2; return 1; }
