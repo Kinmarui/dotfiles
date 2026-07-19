@@ -1,3 +1,72 @@
 # Compression
 compress() { tar -czf "${1%/}.tar.gz" "${1%/}"; }
 alias decompress='tar -xzf'
+
+# --- remote servers ----------------------------------------------------------
+# Reach servers whose Azure network security group denies inbound by default:
+# open this machine's *current* public IP on the target's NSG, then connect.
+# Reconstructed from shell history — the whitelist logic is inferred, so verify
+# `az_vm_allow_current_ip` against a real VM before relying on it.
+#
+# All identity/topology is private and lives in the dotfiles-private overlay
+# (shell/private.sh, symlinked next to this file). It is expected to define:
+#     AZ_SSH_USER="<az local user>"
+#     declare -gA DMOSH_HOSTS=( [name]="<vm-name> <resource-group>" ... )
+# Without it, the whitelist step is skipped and dmosh just falls back to mosh.
+declare -gA DMOSH_HOSTS 2>/dev/null
+
+# az_vm_allow_current_ip <vm> [resource-group] : add an inbound allow rule for
+# this machine's current public IP to every NSG in the VM's resource group,
+# covering SSH (22/tcp) and mosh (60000-61000/udp). RG defaults to "<vm>-rg".
+az_vm_allow_current_ip() {
+  local vm="$1" rg="${2:-${1}-rg}"
+  [ -n "$vm" ] || { echo "usage: az_vm_allow_current_ip <vm> [resource-group]" >&2; return 2; }
+  command -v az >/dev/null 2>&1 || { echo "az CLI not installed" >&2; return 1; }
+  local ip; ip="$(curl -fsS https://api.ipify.org)" \
+    || { echo "could not determine current public IP" >&2; return 1; }
+  local rule="allow-${AZ_SSH_USER:-$USER}-${ip//./-}" nsg found=0
+  while IFS= read -r nsg; do
+    [ -n "$nsg" ] || continue
+    found=1
+    if az network nsg rule create -g "$rg" --nsg-name "${nsg##*/}" \
+         --name "$rule" --priority 300 --direction Inbound --access Allow \
+         --protocol '*' --source-address-prefixes "${ip}/32" \
+         --destination-port-ranges 22 60000-61000 >/dev/null 2>&1; then
+      echo "whitelisted ${ip} on ${nsg##*/}"
+    else
+      echo "note: rule '${rule}' unchanged on ${nsg##*/} (may already exist)" >&2
+    fi
+  done < <(az network nic list -g "$rg" \
+             --query "[].networkSecurityGroup.id" -o tsv 2>/dev/null | sort -u)
+  [ "$found" = 1 ] || { echo "no NSG found in resource group '${rg}'" >&2; return 1; }
+}
+
+# dmosh <host> [mosh args...] : if <host> is a known Azure host, open the current
+# IP on its NSG first; then mosh in. Unknown hosts just mosh directly.
+dmosh() {
+  local name="$1"
+  [ -n "$name" ] || { echo "usage: dmosh <host> [mosh args...]" >&2; return 2; }
+  shift
+  command -v mosh >/dev/null 2>&1 || { echo "mosh not installed" >&2; return 1; }
+  local entry="${DMOSH_HOSTS[$name]:-}"
+  if [ -n "$entry" ]; then
+    # entry is "<vm> <resource-group>"; word-splitting is intentional here.
+    az_vm_allow_current_ip $entry || echo "dmosh: whitelist failed, connecting anyway" >&2
+  fi
+  mosh "$name" "$@"
+}
+
+# azzh <host> [ssh args...] : Azure-native SSH (AAD/certificate auth via
+# `az ssh vm`) to a known Azure host, whitelisting the current IP on its NSG
+# first. Needs an entry in DMOSH_HOSTS (the private overlay).
+azzh() {
+  local name="$1"
+  [ -n "$name" ] || { echo "usage: azzh <host> [ssh args...]" >&2; return 2; }
+  shift
+  command -v az >/dev/null 2>&1 || { echo "az CLI not installed" >&2; return 1; }
+  local entry="${DMOSH_HOSTS[$name]:-}"
+  [ -n "$entry" ] || { echo "azzh: '$name' is not a known Azure host (see DMOSH_HOSTS)" >&2; return 1; }
+  local vm="${entry%% *}" rg="${entry##* }"
+  az_vm_allow_current_ip "$vm" "$rg" || echo "azzh: whitelist failed, connecting anyway" >&2
+  az ssh vm -g "$rg" -n "$vm" --local-user "${AZ_SSH_USER:-$USER}" "$@"
+}

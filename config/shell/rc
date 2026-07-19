@@ -5,4 +5,7 @@ d="$(dirname "${BASH_SOURCE[0]}")"
 source "$d/aliases"
 source "$d/functions"
 source "$d/init"
+# Private overlay fragment (username, server maps, tokens) — delivered into this
+# same dir by the dotfiles-private overlay; never present in the public repo.
+[ -f "$d/private.sh" ] && source "$d/private.sh"
 unset d

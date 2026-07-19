@@ -7,3 +7,6 @@ config/zellij/plugins/*.wasm
 
 # local secrets (never commit — this repo is public)
 secrets
+
+# private overlay shell fragment (identity/server maps live in dotfiles-private)
+config/shell/private.sh
