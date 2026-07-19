@@ -10,19 +10,40 @@ alias decompress='tar -xzf'
 # All identity/topology is private and lives in the dotfiles-private overlay
 # (shell/private.sh, symlinked next to this file). It is expected to define:
 #     AZ_SSH_USER="<az local user>"
-#     declare -gA DMOSH_HOSTS=( [name]="<vm-name> <resource-group>" ... )
+#     declare -gA DMOSH_HOSTS=( [alias]="<vm> [resource-group] [connect-host]" ... )
 #     AZ_IP_RULES=( "<rule-name> <priority> <protocol> <port(s)>" ... )
-# Without it, the whitelist step is skipped and dmosh just falls back to mosh.
+# The alias (map key) is whatever you want to type. resource-group defaults to
+# "<vm>-rg"; connect-host (used by mosh/ssh) defaults to <vm>. Without the map,
+# the whitelist step is skipped and dmosh just falls back to mosh.
 declare -gA DMOSH_HOSTS 2>/dev/null
 
-# az_vm_allow_current_ip <vm> [resource-group] : point each rule in AZ_IP_RULES
-# at this machine's current public IP, on every NSG in the VM's resource group.
-# Existing rules are updated in place; missing ones are created. RG defaults to
-# "<vm>-rg". These are named, long-lived per-user rules (one IP at a time), not
-# a new rule per IP — so reconnecting from a new network just moves the source.
+# _dmosh_lookup <name> : if <name> is a DMOSH_HOSTS alias, echo the resolved
+# "<vm> <resource-group> <connect-host>" (defaults filled in) and return 0;
+# otherwise return 1 so callers treat <name> as a plain, non-Azure host.
+_dmosh_lookup() {
+  local spec="${DMOSH_HOSTS[$1]:-}" vm rg host
+  [ -n "$spec" ] || return 1
+  read -r vm rg host <<<"$spec"
+  printf '%s %s %s\n' "$vm" "${rg:-${vm}-rg}" "${host:-$vm}"
+}
+
+# az_vm_allow_current_ip <host> [resource-group] : point each rule in AZ_IP_RULES
+# at this machine's current public IP, on every NSG in the target's resource
+# group. <host> may be a DMOSH_HOSTS alias (resolved to its VM + resource group)
+# or a literal VM name (RG defaults to "<host>-rg", or the 2nd argument if given).
+# Existing rules are updated in place; missing ones are created. These are named,
+# long-lived per-user rules (one IP at a time), so reconnecting from a new
+# network just moves the source.
 az_vm_allow_current_ip() {
-  local vm="$1" rg="${2:-${1}-rg}"
-  [ -n "$vm" ] || { echo "usage: az_vm_allow_current_ip <vm> [resource-group]" >&2; return 2; }
+  local name="$1" vm rg info
+  [ -n "$name" ] || { echo "usage: az_vm_allow_current_ip <host> [resource-group]" >&2; return 2; }
+  if [ -n "${2:-}" ]; then
+    vm="$name"; rg="$2"                       # explicit vm + rg (from dmosh/azzh)
+  elif info="$(_dmosh_lookup "$name")"; then
+    read -r vm rg _ <<<"$info"                # alias -> mapped vm + resource group
+  else
+    vm="$name"; rg="${name}-rg"               # literal vm, default resource group
+  fi
   command -v az >/dev/null 2>&1 || { echo "az CLI not installed" >&2; return 1; }
   local ip; ip="$(curl -fsS https://api.ipify.org)" \
     || { echo "could not determine current public IP" >&2; return 1; }
@@ -54,32 +75,36 @@ az_vm_allow_current_ip() {
   [ "$found" = 1 ] || { echo "no NSG found in resource group '${rg}'" >&2; return 1; }
 }
 
-# dmosh <host> [mosh args...] : if <host> is a known Azure host, open the current
-# IP on its NSG first; then mosh in. Unknown hosts just mosh directly.
+# dmosh <host> [mosh args...] : if <host> is a known Azure alias, open the current
+# IP on its NSG first, then mosh to the resolved connect-host. Unknown hosts just
+# mosh directly (so plain SSH aliases keep working).
 dmosh() {
   local name="$1"
   [ -n "$name" ] || { echo "usage: dmosh <host> [mosh args...]" >&2; return 2; }
   shift
   command -v mosh >/dev/null 2>&1 || { echo "mosh not installed" >&2; return 1; }
-  local entry="${DMOSH_HOSTS[$name]:-}"
-  if [ -n "$entry" ]; then
-    # entry is "<vm> <resource-group>"; word-splitting is intentional here.
-    az_vm_allow_current_ip $entry || echo "dmosh: whitelist failed, connecting anyway" >&2
+  local info vm rg host
+  if info="$(_dmosh_lookup "$name")"; then
+    read -r vm rg host <<<"$info"
+    az_vm_allow_current_ip "$vm" "$rg" || echo "dmosh: whitelist failed, connecting anyway" >&2
+    mosh "$host" "$@"
+  else
+    mosh "$name" "$@"
   fi
-  mosh "$name" "$@"
 }
 
 # azzh <host> [ssh args...] : Azure-native SSH (AAD/certificate auth via
-# `az ssh vm`) to a known Azure host, whitelisting the current IP on its NSG
+# `az ssh vm`) to a known Azure alias, whitelisting the current IP on its NSG
 # first. Needs an entry in DMOSH_HOSTS (the private overlay).
 azzh() {
   local name="$1"
   [ -n "$name" ] || { echo "usage: azzh <host> [ssh args...]" >&2; return 2; }
   shift
   command -v az >/dev/null 2>&1 || { echo "az CLI not installed" >&2; return 1; }
-  local entry="${DMOSH_HOSTS[$name]:-}"
-  [ -n "$entry" ] || { echo "azzh: '$name' is not a known Azure host (see DMOSH_HOSTS)" >&2; return 1; }
-  local vm="${entry%% *}" rg="${entry##* }"
+  local info vm rg host
+  info="$(_dmosh_lookup "$name")" \
+    || { echo "azzh: '$name' is not a known Azure host (see DMOSH_HOSTS)" >&2; return 1; }
+  read -r vm rg host <<<"$info"
   az_vm_allow_current_ip "$vm" "$rg" || echo "azzh: whitelist failed, connecting anyway" >&2
   az ssh vm -g "$rg" -n "$vm" --local-user "${AZ_SSH_USER:-$USER}" "$@"
 }
