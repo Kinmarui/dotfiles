@@ -10,11 +10,15 @@ alias decompress='tar -xzf'
 # All identity/topology is private and lives in the dotfiles-private overlay
 # (shell/private.sh, symlinked next to this file). It is expected to define:
 #     AZ_SSH_USER="<az local user>"
-#     declare -gA DMOSH_HOSTS=( [alias]="<vm> [resource-group] [connect-host]" ... )
+#     declare -gA DMOSH_HOSTS=( [alias]="<vm> <resource-group> [connect-host]" ... )
 #     AZ_IP_RULES=( "<rule-name> <priority> <protocol> <port(s)>" ... )
-# The alias (map key) is whatever you want to type. resource-group defaults to
-# "<vm>-rg"; connect-host (used by mosh/ssh) defaults to <vm>. Without the map,
-# the whitelist step is skipped and dmosh just falls back to mosh.
+# The map key is any alias you want to type. The value is positional:
+#     field 1  <vm>              Azure VM name; also the mosh/ssh target by default
+#     field 2  <resource-group>  the VM's resource group  (optional: defaults to "<vm>-rg")
+#     field 3  [connect-host]    mosh/ssh target, only if it differs from <vm>
+# So the usual entry is just "<vm> <resource-group>" (as in the examples below);
+# add a 3rd field only when the host you dial isn't the VM name. Without the map,
+# a name is treated as a literal VM (RG "<name>-rg"), so dmosh still works.
 declare -gA DMOSH_HOSTS 2>/dev/null
 
 # _dmosh_target <name> : echo "<vm> <resource-group> <connect-host>" for <name>.
