@@ -2,10 +2,13 @@
 # zellij — terminal multiplexer, pinned, with our custom config + zjstatus bar.
 #
 # Versions are pinned (override via env): zellij ships session/plugin format
-# changes between versions, so we bump deliberately. zjstatus 0.23.x targets
-# zellij 0.44.x.
+# changes between versions, so we bump deliberately. The pair moves together —
+# zjstatus builds against a specific zellij-tile: 0.24.x -> zellij-tile 0.44.3
+# (our pin), while zjstatus 0.25.0+ requires zellij >= 0.45.0, which is a UI
+# redesign (title-line pane frames by default, stacked-pane lists, nested
+# sessions) and a config migration. Bump both together, never just one.
 ZELLIJ_VERSION="${ZELLIJ_VERSION:-0.44.3}"
-ZJSTATUS_VERSION="${ZJSTATUS_VERSION:-0.23.0}"
+ZJSTATUS_VERSION="${ZJSTATUS_VERSION:-0.24.0}"
 # ZELLIJ_GLIBC: auto|1|0. The official Linux release is musl-static, and Rust's
 # std cannot read a file's btime on musl — which silently breaks zellij session
 # *resurrection* ("Failed to read created stamp of resurrection file" in the log,
@@ -175,11 +178,24 @@ if [ -d "$src/plugins" ]; then
   done
 fi
 
-# zjstatus plugin (gitignored binary; fetched on demand).
-if [ ! -f "$ZJ_DIR/plugins/zjstatus.wasm" ]; then
-  log "downloading zjstatus $ZJSTATUS_VERSION"
-  curl -fsSLo "$ZJ_DIR/plugins/zjstatus.wasm" \
+# zjstatus plugin (gitignored binary; fetched on demand). The .wasm carries no
+# readable version, so record what we fetched next to it: keyed only on the
+# file's existence, a ZJSTATUS_VERSION bump would be silently ignored on every
+# machine that already has one.
+zjs_wasm="$ZJ_DIR/plugins/zjstatus.wasm"
+zjs_stamp="$ZJ_DIR/plugins/.zjstatus.version"
+if [ ! -f "$zjs_wasm" ] || [ "$(cat "$zjs_stamp" 2>/dev/null || true)" != "$ZJSTATUS_VERSION" ]; then
+  log "downloading zjstatus $ZJSTATUS_VERSION (have: $(cat "$zjs_stamp" 2>/dev/null || echo none))"
+  # Download to a temp name so a failed fetch cannot leave a truncated plugin
+  # in place — zellij would load it and render a blank bar.
+  curl -fsSLo "$zjs_wasm.new" \
     "https://github.com/dj95/zjstatus/releases/download/v${ZJSTATUS_VERSION}/zjstatus.wasm"
+  mv "$zjs_wasm.new" "$zjs_wasm"
+  printf '%s\n' "$ZJSTATUS_VERSION" > "$zjs_stamp"
+  ok "zjstatus $ZJSTATUS_VERSION installed"
+  warn "restart your zellij sessions to load it (plugins are bound at session start)"
+else
+  ok "zjstatus $ZJSTATUS_VERSION already present"
 fi
 
 # zjstatus permission grant: zellij normally asks for plugin permissions on first

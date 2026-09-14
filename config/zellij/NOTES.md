@@ -1,6 +1,6 @@
 # zellij + zjstatus notes / gotchas
 
-Hard-won lessons configuring these layouts (zellij 0.44.3, zjstatus v0.18.1).
+Hard-won lessons configuring these layouts (zellij 0.44.3, zjstatus v0.24.0).
 Read this before editing the layouts or debugging the status bar.
 
 ## musl release breaks session resurrection (btime) — build glibc in containers/WSL
@@ -80,13 +80,25 @@ are wrong for the permission key on 0.44.x. Verify by tailing the log: no
 The cache is read at **plugin load**, so an already-running session must be
 restarted to pick up a newly-seeded grant (new sessions just work).
 
-## Status bar blank on load until a keypress
-On zellij 0.44.3, `command_*` (and datetime) widgets only refresh on events,
-not on their interval — zellij dropped the incidental 1s refresh loop zjstatus
-relied on. So stats/host are blank until the first key/mode/tab event.
-Upstream bug zjstatus **#260**; fix is PR **#253** (merged to main, unreleased
-as of 2026-06). Action: bump `zjstatus.wasm` past v0.23.0 once released.
-Not fixable by config on a released build.
+## Status bar blank on load until a keypress — fixed, needs zjstatus >= 0.24.0
+On zellij 0.44.3 with zjstatus 0.23.0, `command_*` (and datetime) widgets only
+refreshed on events, not on their interval — zellij dropped the incidental 1s
+refresh loop zjstatus relied on, so stats/host stayed blank until the first
+key/mode/tab event. Upstream bug zjstatus **#260**, fixed by PR **#253** ("use
+timer events for idle refresh") and released in **v0.24.0** (2026-07-15), which
+is what `install/zellij.sh` now pins. Not fixable by config on an older build.
+
+Note the pin cannot be bumped freely: zjstatus builds against a specific
+`zellij-tile` (0.24.x -> 0.44.3, matching our zellij; **0.25.0 -> 0.45.0**), so
+zjstatus 0.25.0+ arrives only together with zellij 0.45.x — a UI redesign
+(pane frames default to a single title line, `pane_frame_style "full"` restores
+the old look on both sides) plus a config migration. Move both pins at once.
+
+The plugin binary is fetched, not committed, and a `.wasm` carries no readable
+version — `install/zellij.sh` writes the fetched version to
+`~/.config/zellij/plugins/.zjstatus.version` and re-downloads when the pin
+changes. Delete that file to force a refetch. A new .wasm only takes effect in
+**new** sessions (plugins are bound at session start), like layouts.
 
 ## Every swap layout needs its own status-bar pane
 `swap_tiled_layout` / `swap_floating_layout` **replace the whole tab layout**,
