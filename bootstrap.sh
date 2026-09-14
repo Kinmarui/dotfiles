@@ -105,8 +105,16 @@ for app in "${SELECTED[@]}"; do
   script="$(installer_for "$app")"
   if [ -z "$script" ]; then err "no installer for '$app' — skipping"; failed+=("$app"); continue; fi
   log "[$app]"
-  # Subshell isolates each installer's cd/traps; failure is contained.
-  if ( source "$script" ); then ok "[$app] done"; else err "[$app] failed"; failed+=("$app"); fi
+  # Each installer runs in a CHILD bash that sources lib/common.sh and then the
+  # installer. Sourced, because installers use a top-level `return` to bail out;
+  # a *child process* rather than a `( ... )` subshell, because bash disables
+  # errexit for the commands of an `if` condition and a subshell inherits that
+  # suppression (re-running `set -e` inside does NOT restore it). Sourced in a
+  # subshell an installer runs on past a failed command and reports the status
+  # of its last line — that is how a failed zellij build once printed "done".
+  if bash -c 'set -euo pipefail; source "$1"; source "$2"' \
+       bootstrap "$DOTFILES_ROOT/lib/common.sh" "$script"
+  then ok "[$app] done"; else err "[$app] failed"; failed+=("$app"); fi
 done
 
 echo

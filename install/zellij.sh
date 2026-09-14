@@ -9,9 +9,10 @@ ZJSTATUS_VERSION="${ZJSTATUS_VERSION:-0.23.0}"
 # ZELLIJ_GLIBC: auto|1|0. The official Linux release is musl-static, and Rust's
 # std cannot read a file's btime on musl — which silently breaks zellij session
 # *resurrection* ("Failed to read created stamp of resurrection file" in the log,
-# sessions drop to EXITED). A glibc build fixes it. 'auto' (default): inside a
-# container (LXC/Docker) reuse an existing glibc zellij if present, else build it
-# from source; on bare metal/VM just download the fast musl release. It never
+# sessions drop to EXITED). A glibc build fixes it. 'auto' (default): on a host
+# where we live in long-lived resurrected sessions (containers and WSL2 — see
+# is_container) reuse an existing glibc zellij if present, else build it from
+# source; on bare metal/VM just download the fast musl release. It never
 # rebuilds when a matching glibc binary already exists. Force with ZELLIJ_GLIBC=1/0.
 ZELLIJ_GLIBC="${ZELLIJ_GLIBC:-auto}"
 
@@ -19,7 +20,11 @@ ZJ_DIR="$HOME/.config/zellij"
 src="$(config_dir zellij)"
 
 # --- binary -------------------------------------------------------------------
-# is_container: true inside LXC / Docker / podman / systemd-nspawn.
+# is_container: true inside LXC / Docker / podman / systemd-nspawn — and on
+# WSL2, which `systemd-detect-virt --container` reports as "wsl". WSL2 is
+# deliberately left in: it is a daily-driver dev box where we rely on zellij
+# session resurrection, so it wants the glibc build for the same reason a
+# container does (the musl btime bug). Set ZELLIJ_GLIBC=0 to opt out.
 is_container() {
   if has_cmd systemd-detect-virt; then systemd-detect-virt --container --quiet && return 0; fi
   { [ -f /run/.containerenv ] || [ -f /.dockerenv ]; } && return 0
@@ -58,10 +63,23 @@ zellij_build_glibc() {
   if   has_cmd cargo; then CARGO=(cargo)
   elif has_cmd mise;  then CARGO=(mise exec rust@latest -- cargo)
   else err "need cargo or mise to build glibc zellij (enable 'mise' in manifest.conf)"; return 1; fi
+  # Prove the toolchain actually runs BEFORE the apt install and the ~15-min
+  # build. `mise exec rust@latest` resolves the version over the GitHub API, so
+  # it fails on a stale token (mise reads gh's hosts.yml): "401 Bad credentials"
+  # -> no rust -> `"cargo" couldn't exec process`. Without this check the build
+  # limped on and only died at `install: cannot stat ~/.cargo/bin/zellij`.
+  if ! "${CARGO[@]}" --version >/dev/null 2>&1; then
+    err "cannot run '${CARGO[*]}' — no usable rust toolchain, not building zellij $ver"
+    [ "${CARGO[0]}" = "mise" ] && err "check 'mise exec rust@latest -- cargo --version'; a 401 there means an expired GitHub token ('gh auth status', then 'gh auth login')"
+    return 1
+  fi
   # vendored openssl+curl (default features) need a C toolchain + perl (+cmake).
   [ "$PKG" = "apt" ] && pkg_install build-essential pkg-config cmake perl
   log "building zellij $ver from source (glibc — fixes session resurrection); this takes a while"
-  "${CARGO[@]}" install --locked --force --version "$ver" zellij   # -> ~/.cargo/bin/zellij
+  if ! "${CARGO[@]}" install --locked --force --version "$ver" zellij; then   # -> ~/.cargo/bin/zellij
+    err "cargo install zellij $ver failed"; return 1
+  fi
+  [ -x "$HOME/.cargo/bin/zellij" ] || { err "build reported success but $HOME/.cargo/bin/zellij is missing"; return 1; }
   $SUDO install "$HOME/.cargo/bin/zellij" /usr/local/bin/zellij
   hash -r
 }
@@ -85,22 +103,37 @@ zellij_provide_glibc() {
     || { err "resulting zellij is not glibc/$ver"; return 1; }
 }
 
+# Binary failures are recorded, not fatal: the config below is still worth
+# applying (and is idempotent), but the installer must exit non-zero so
+# bootstrap.sh reports "[zellij] failed" instead of "done".
+zellij_bin_failed=0
+
 if [ "${CONFIG_ONLY:-0}" != "1" ]; then
   want_glibc=0
   case "$ZELLIJ_GLIBC" in
     1|yes|true)  want_glibc=1 ;;
     0|no|false)  want_glibc=0 ;;
-    *)           is_container && want_glibc=1 ;;   # auto
+    *)           is_container && want_glibc=1 ;;   # auto (containers + WSL2)
   esac
   cur="$(zellij_ver 2>/dev/null || true)"
 
   if [ "$want_glibc" = "1" ]; then
-    zellij_provide_glibc "$ZELLIJ_VERSION"      # reuse-then-build (see fn)
+    zellij_provide_glibc "$ZELLIJ_VERSION" || zellij_bin_failed=1   # reuse-then-build (see fn)
   else
     if [ "$cur" = "$ZELLIJ_VERSION" ] && ! zellij_is_glibc; then
       ok "zellij $ZELLIJ_VERSION already installed (musl)"
     else
-      zellij_install_musl "$ZELLIJ_VERSION"
+      zellij_install_musl "$ZELLIJ_VERSION" || zellij_bin_failed=1
+    fi
+  fi
+
+  # An older zellij earlier in PATH (e.g. a distro/omakub one in /usr/bin) would
+  # keep winning over the binary we just installed — a silent version mismatch
+  # against the config and zjstatus build below.
+  if [ "$zellij_bin_failed" = "0" ]; then
+    live="$(command -v zellij 2>/dev/null || true)"
+    if [ -n "$live" ] && [ "$live" != "/usr/local/bin/zellij" ]; then
+      warn "PATH resolves zellij to $live ($("$live" --version 2>/dev/null || echo unknown)), shadowing /usr/local/bin/zellij — remove it or fix PATH order"
     fi
   fi
 fi
@@ -170,3 +203,6 @@ else
 fi
 
 ok "zellij configured (config $([ -L "$ZJ_DIR/config.kdl" ] && echo linked), layouts rendered)"
+
+# Report the binary step's verdict last, so bootstrap.sh sees it.
+[ "$zellij_bin_failed" = "0" ] || { err "zellij $ZELLIJ_VERSION binary step failed (config was still applied)"; return 1; }

@@ -3,7 +3,7 @@
 Hard-won lessons configuring these layouts (zellij 0.44.3, zjstatus v0.18.1).
 Read this before editing the layouts or debugging the status bar.
 
-## musl release breaks session resurrection (btime) — build glibc in containers
+## musl release breaks session resurrection (btime) — build glibc in containers/WSL
 The official zellij Linux release is **musl-static**, and Rust's `std` can't read
 a file's creation time (btime) on musl — `Metadata::created()` returns
 *"creation time is not available on this platform currently"* on **any** host.
@@ -13,9 +13,26 @@ spams `Failed to read created stamp of resurrection file` and sessions drop to
 coreutils `stat` reads btime fine here (ext4 + kernel `statx` work); it's purely
 the musl binary. zellij ships **no** glibc Linux release, and Ubuntu 24.04
 doesn't package zellij, so the only glibc build that runs on our glibc (2.39) is
-a from-source `cargo install`. `install/zellij.sh` does this automatically inside
-a container (see `ZELLIJ_GLIBC`). Verify the fix: `ldd $(which zellij)` shows
-`libc.so.6` (glibc) and the resurrection error is gone from the log.
+a from-source `cargo install`. `install/zellij.sh` does this automatically where we
+live in long-lived resurrected sessions — inside a container **and on WSL2**,
+which `systemd-detect-virt --container` reports as `wsl` so `is_container()`
+returns true for it too (intentional; the XPS dev box wants resurrection).
+Everything else takes the fast musl release. Override either way with
+`ZELLIJ_GLIBC=1|0`. Verify the fix: `ldd $(which zellij)` shows `libc.so.6`
+(glibc) and the resurrection error is gone from the log. Also check *which*
+zellij runs: an older one earlier in PATH (e.g. `/usr/bin/zellij` from a distro
+package or an omakub run) shadows the `/usr/local/bin/zellij` we install, and
+then the config and zjstatus here are aimed at a version you are not running.
+
+## The glibc build needs a rust toolchain — a stale `gh` token breaks it
+zellij ships no glibc binary, so the build is `cargo install`. With no system
+cargo the installer falls back to `mise exec rust@latest -- cargo`, and mise
+resolves `rust@latest` over the **GitHub API** using the token it finds in gh's
+`hosts.yml`. An expired token there is not ignored — it is sent and rejected:
+`401 Bad credentials` -> no rust -> `"cargo" couldn't exec process`. Fix with
+`gh auth status` then `gh auth login` (or `gh auth logout`, which drops mise
+back to anonymous API calls and also works). `install/zellij.sh` now proves the
+toolchain runs (`cargo --version`) before starting the ~15-min build.
 
 ## Layout changes only apply to NEW sessions
 zellij bakes the layout into a session at creation. Editing a layout file does
