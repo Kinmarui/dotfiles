@@ -29,3 +29,26 @@ if ! has_cmd eza; then
     APT_UPDATED=0; pkg_install eza
   fi
 fi
+
+# zoxide: Ubuntu 22.04 ships 0.4.3 (2021), which is not just old — its shell
+# init defines `_z_cd() { cd "$@"; }`, and an `alias cd='z'` that exists when
+# that function is parsed expands inside it, so cd recurses until the shell
+# dies of SIGSEGV (config/shell/init keeps the alias after the eval to prevent
+# this). Modern zoxide emits `builtin cd` and jumps straight into an argument
+# that is already a directory. Upgrade from the upstream .deb (same package
+# name, so apt just replaces the distro one) when apt's is older than ZOXIDE_MIN.
+ZOXIDE_MIN="${ZOXIDE_MIN:-0.9.0}"
+zoxide_ver() { zoxide --version 2>/dev/null | awk '{print $2}' | sed 's/^v//; s/-.*//'; }
+cur_zoxide="$(zoxide_ver)"
+if [ -n "$cur_zoxide" ] && ! ver_ge "$ZOXIDE_MIN" "$cur_zoxide"; then
+  log "zoxide $cur_zoxide is older than $ZOXIDE_MIN — installing the upstream release"
+  zver="$(curl -fsSL https://api.github.com/repos/ajeetdsouza/zoxide/releases/latest | grep -Po '"tag_name": "v\K[^"]*')"
+  zarch="$(dpkg --print-architecture)"   # amd64 | arm64
+  cd /tmp
+  curl -fsSLo zoxide.deb "https://github.com/ajeetdsouza/zoxide/releases/download/v${zver}/zoxide_${zver}-1_${zarch}.deb"
+  $SUDO apt-get install -y ./zoxide.deb
+  rm -f zoxide.deb
+  cd - >/dev/null
+  ok "zoxide upgraded $cur_zoxide -> $(zoxide_ver)"
+  warn "open a new shell or run: source ~/.bashrc   (running shells keep the old zoxide init)"
+fi
