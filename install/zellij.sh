@@ -59,20 +59,30 @@ zellij_install_musl() {
 # so a later run can reuse it without recompiling, then copies to /usr/local/bin.
 zellij_build_glibc() {
   local ver="$1"
-  local -a CARGO
-  if   has_cmd cargo; then CARGO=(cargo)
-  elif has_cmd mise;  then CARGO=(mise exec rust@latest -- cargo)
-  else err "need cargo or mise to build glibc zellij (enable 'mise' in manifest.conf)"; return 1; fi
-  # Prove the toolchain actually runs BEFORE the apt install and the ~15-min
-  # build. `mise exec rust@latest` resolves the version over the GitHub API, so
-  # it fails on a stale token (mise reads gh's hosts.yml): "401 Bad credentials"
-  # -> no rust -> `"cargo" couldn't exec process`. Without this check the build
-  # limped on and only died at `install: cannot stat ~/.cargo/bin/zellij`.
-  if ! "${CARGO[@]}" --version >/dev/null 2>&1; then
-    err "cannot run '${CARGO[*]}' — no usable rust toolchain, not building zellij $ver"
-    [ "${CARGO[0]}" = "mise" ] && err "check 'mise exec rust@latest -- cargo --version'; a 401 there means an expired GitHub token ('gh auth status', then 'gh auth login')"
+  # Pick a cargo that actually RUNS, before the apt install and the ~15-min
+  # build. `has_cmd cargo` alone is not enough on a mise-activated shell: mise
+  # puts a `cargo` shim on PATH that fails with "no version set" unless rust is
+  # selected for this directory, so a found-but-dead cargo must fall through to
+  # `mise exec`. (The other way this fails: mise resolves rust@latest over the
+  # GitHub API using the token from gh's hosts.yml, so a stale token gives 401
+  # Bad credentials -> no rust -> `"cargo" couldn't exec process`.) Until this
+  # check existed the build limped on to `install: cannot stat .../zellij`.
+  local -a CARGO=()
+  if   has_cmd cargo && cargo --version >/dev/null 2>&1; then CARGO=(cargo)
+  elif has_cmd mise  && mise exec rust@latest -- cargo --version >/dev/null 2>&1; then
+    CARGO=(mise exec rust@latest -- cargo)
+  fi
+  if [ "${#CARGO[@]}" -eq 0 ]; then
+    err "no usable rust toolchain — not building zellij $ver"
+    if has_cmd mise; then
+      err "see why: 'mise exec rust@latest -- cargo --version' (a 401 there = expired GitHub token: 'gh auth status', then 'gh auth login')"
+      err "or make cargo work everywhere: 'mise use -g rust@latest'"
+    else
+      err "install cargo, or enable 'mise' in manifest.conf"
+    fi
     return 1
   fi
+  log "using '${CARGO[*]}' ($("${CARGO[@]}" --version 2>/dev/null | head -1))"
   # vendored openssl+curl (default features) need a C toolchain + perl (+cmake).
   [ "$PKG" = "apt" ] && pkg_install build-essential pkg-config cmake perl
   log "building zellij $ver from source (glibc — fixes session resurrection); this takes a while"
