@@ -21,9 +21,8 @@ if command -v fzf >/dev/null 2>&1; then
   unset _preview_cmd
 fi
 
-# `z` (jump to frecent dir) is defined by `zoxide init bash` in ./init, sourced
-# after this file — the alias only matters once you actually type `cd`.
-command -v zoxide >/dev/null 2>&1 && alias cd='z'
+# `alias cd='z'` lives in ./init, right after `zoxide init bash` runs — it must
+# not exist while zoxide's functions are being parsed. See the comment there.
 
 # Directories
 alias ..='cd ..'

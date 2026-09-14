@@ -5,7 +5,16 @@ if command -v mise &> /dev/null; then
 fi
 
 if command -v zoxide &> /dev/null; then
+  # `alias cd='z'` MUST be defined after this eval, never before it. Bash expands
+  # aliases when a function body is *parsed*, and zoxide's own helper is
+  # `_z_cd() { cd "$@"; }` — parsed with a `cd` alias in scope it becomes
+  # `z "$@"`, so cd -> z -> _z_cd -> z -> ... recurses until the shell dies of
+  # SIGSEGV (zellij shows "[process exited with code 139]" and you never move).
+  # Old zoxide (0.4.x, Ubuntu 22.04) is vulnerable; newer versions emit
+  # `builtin cd` and are not — keep the order anyway.
+  unalias cd 2>/dev/null || true
   eval "$(zoxide init bash)"
+  alias cd='z'
 fi
 
 if command -v fzf &> /dev/null; then
