@@ -30,25 +30,55 @@ if ! has_cmd eza; then
   fi
 fi
 
-# zoxide: Ubuntu 22.04 ships 0.4.3 (2021), which is not just old — its shell
-# init defines `_z_cd() { cd "$@"; }`, and an `alias cd='z'` that exists when
-# that function is parsed expands inside it, so cd recurses until the shell
-# dies of SIGSEGV (config/shell/init keeps the alias after the eval to prevent
-# this). Modern zoxide emits `builtin cd` and jumps straight into an argument
-# that is already a directory. Upgrade from the upstream .deb (same package
-# name, so apt just replaces the distro one) when apt's is older than ZOXIDE_MIN.
-ZOXIDE_MIN="${ZOXIDE_MIN:-0.9.0}"
-zoxide_ver() { zoxide --version 2>/dev/null | awk '{print $2}' | sed 's/^v//; s/-.*//'; }
-cur_zoxide="$(zoxide_ver)"
-if [ -n "$cur_zoxide" ] && ! ver_ge "$ZOXIDE_MIN" "$cur_zoxide"; then
-  log "zoxide $cur_zoxide is older than $ZOXIDE_MIN — installing the upstream release"
-  zver="$(curl -fsSL https://api.github.com/repos/ajeetdsouza/zoxide/releases/latest | grep -Po '"tag_name": "v\K[^"]*')"
-  zarch="$(dpkg --print-architecture)"   # amd64 | arm64
-  cd /tmp
-  curl -fsSLo zoxide.deb "https://github.com/ajeetdsouza/zoxide/releases/download/v${zver}/zoxide_${zver}-1_${zarch}.deb"
-  $SUDO apt-get install -y ./zoxide.deb
-  rm -f zoxide.deb
-  cd - >/dev/null
-  ok "zoxide upgraded $cur_zoxide -> $(zoxide_ver)"
-  warn "open a new shell or run: source ~/.bashrc   (running shells keep the old zoxide init)"
+# --- upstream upgrades for stale distro packages ------------------------------
+# Older targets package some of these years behind: Ubuntu 22.04 ships fzf 0.29,
+# bat 0.19.0, fd 8.3.1 and zoxide 0.4.3. The floor for each tool is the oldest
+# version any *supported* target ships (Debian 12, mostly), so a 22.04 box comes
+# up to parity while Debian 12/13 and Ubuntu 24.04 keep their own packages —
+# deliberately not a chase-the-latest upgrade. Upstream publishes .debs under the
+# same package name, so apt replaces the distro build in place and no later
+# `apt upgrade` downgrades it.
+#
+# zoxide's floor is the exception that is about a bug, not parity: 0.4.3 (Ubuntu
+# 22.04 *and* Debian 12) emits `_z_cd() { cd "$@"; }`, which an `alias cd='z'`
+# turns into recursion until the shell segfaults — see config/shell/init.
+#
+# upgrade_if_below_floor <cmd> <alt cmd|-> <floor> <owner/repo> <asset>
+#   alt cmd: the distro's renamed binary (Ubuntu ships bat as batcat, fd as
+#   fdfind) — checked for the current version when <cmd> itself is absent.
+#   asset: release file name, @V = version, @A = dpkg architecture.
+upgrade_if_below_floor() {
+  local cmd="$1" alt="$2" floor="$3" repo="$4" asset="$5" cur tag ver
+  cur="$(tool_version "$cmd" 2>/dev/null || true)"
+  if [ -z "$cur" ] && [ "$alt" != "-" ]; then cur="$(tool_version "$alt" 2>/dev/null || true)"; fi
+  if [ -n "$cur" ] && ver_ge "$floor" "$cur"; then
+    ok "$cmd $cur — at or above the $floor floor, keeping the distro package"
+    return 0
+  fi
+  tag="$(latest_tag "$repo")" || tag=""
+  if [ -z "$tag" ]; then warn "could not resolve the latest $cmd release — keeping ${cur:-none}"; return 0; fi
+  ver="${tag#v}"
+  log "$cmd ${cur:-none} is below the $floor floor — installing upstream $ver"
+  asset="${asset//@V/$ver}"; asset="${asset//@A/$(dpkg --print-architecture)}"
+  if install_deb "https://github.com/$repo/releases/download/$tag/$asset"; then
+    ok "$cmd ${cur:-none} -> $(tool_version "$cmd")"
+    UPSTREAM_UPGRADED=1
+  else
+    warn "$cmd upgrade failed — keeping ${cur:-none}"
+  fi
+}
+
+UPSTREAM_UPGRADED=0
+upgrade_if_below_floor fzf    -      0.38.0 junegunn/fzf       'fzf_@V_@A.deb'
+upgrade_if_below_floor bat    batcat 0.22.1 sharkdp/bat        'bat_@V_@A.deb'
+upgrade_if_below_floor fd     fdfind 8.6.0  sharkdp/fd         'fd_@V_@A.deb'
+upgrade_if_below_floor zoxide -      0.9.0  ajeetdsouza/zoxide 'zoxide_@V-1_@A.deb'
+# Note: upstream's bat package is also called "bat" so it replaces the distro
+# one (and provides `bat`, not `batcat`), but upstream's fd package is "fd"
+# while Ubuntu's is "fd-find" — those coexist, leaving the old `fdfind` beside
+# the new `fd`. Harmless: config/shell/aliases only aliases the names that are
+# missing, and scripts here probe for both.
+
+if [ "$UPSTREAM_UPGRADED" = "1" ]; then
+  warn "open a new shell or run: source ~/.bashrc   (fzf/zoxide shell hooks are set up per shell)"
 fi

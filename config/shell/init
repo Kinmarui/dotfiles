@@ -18,14 +18,24 @@ if command -v zoxide &> /dev/null; then
 fi
 
 if command -v fzf &> /dev/null; then
-  if [[ -f /usr/share/bash-completion/completions/fzf ]]; then
-    source /usr/share/bash-completion/completions/fzf
-  fi
-  if [[ -f /usr/share/doc/fzf/examples/key-bindings.bash ]]; then
-    source /usr/share/doc/fzf/examples/key-bindings.bash
-  fi
-  # brew (macOS) ships fzf's shell integration under its own prefix instead.
-  if command -v brew &> /dev/null && [[ -f "$(brew --prefix)/opt/fzf/shell/key-bindings.bash" ]]; then
-    source "$(brew --prefix)/opt/fzf/shell/key-bindings.bash"
+  # fzf >= 0.48 prints its own completion + key bindings, which is the only
+  # portable source: the completion/key-binding *files* below are added by
+  # distro packaging (and land in different places per distro), while the
+  # upstream .deb that install/terminal-tools.sh uses on old releases contains
+  # nothing but the binary — sourcing files alone loses Ctrl-R/Ctrl-T/Alt-C
+  # the moment fzf comes from upstream. Ask the binary first, fall back to files.
+  if fzf --bash &> /dev/null; then
+    eval "$(fzf --bash)"
+  else
+    if [[ -f /usr/share/bash-completion/completions/fzf ]]; then
+      source /usr/share/bash-completion/completions/fzf
+    fi
+    if [[ -f /usr/share/doc/fzf/examples/key-bindings.bash ]]; then
+      source /usr/share/doc/fzf/examples/key-bindings.bash
+    fi
+    # brew (macOS) ships fzf's shell integration under its own prefix instead.
+    if command -v brew &> /dev/null && [[ -f "$(brew --prefix)/opt/fzf/shell/key-bindings.bash" ]]; then
+      source "$(brew --prefix)/opt/fzf/shell/key-bindings.bash"
+    fi
   fi
 fi

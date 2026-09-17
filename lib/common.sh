@@ -61,6 +61,25 @@ release_arch() {
 }
 require_x86_64() { [ "$ARCH" = "x86_64" ] || { warn "skipping: only x86_64 is supported (have $ARCH)"; return 1; }; }
 
+# --- tool versions ------------------------------------------------------------
+# tool_version <cmd> : first dotted version in `<cmd> --version`, or empty.
+# Deliberately loose — every tool prints its own shape ("bat 0.19.0",
+# "jq-1.6", "btop version: 1.2.3", "gh version 2.4.0+dfsg1", "NVIM v0.11.0-dev",
+# lazygit's "commit=..., version=0.46.0, ...") and the first x.y[.z] in the
+# output is the version in all of them.
+tool_version() {
+  has_cmd "$1" || return 1
+  "$1" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1
+}
+# outdated <cmd> <min> : true when <cmd> is missing, unreadable, or older than
+# <min>. The counterpart to has_cmd: installers that only ask "is it here?"
+# never upgrade the distro's 2022 build (see fzf 0.29 on Ubuntu 22.04).
+outdated() {
+  local cur; cur="$(tool_version "$1" 2>/dev/null || true)"
+  [ -n "$cur" ] || return 0
+  ! ver_ge "$2" "$cur"
+}
+
 # --- package manager (apt | brew) ---------------------------------------------
 PKG=""
 if has_cmd apt-get; then PKG="apt"
@@ -75,6 +94,49 @@ pkg_install() {
     brew) brew install "$@" ;;
     *)    err "no supported package manager (need apt or brew)"; return 1 ;;
   esac
+}
+
+# --- upstream release fetching ------------------------------------------------
+# Distro packages for these tools are often years behind (Ubuntu 22.04 ships fzf
+# 0.29, bat 0.19, jq 1.6), so installers upgrade from upstream when `outdated`
+# says so. Both helpers stage into a temp dir and clean up after themselves.
+#
+# latest_tag <owner/repo> : newest release tag, verbatim ("v0.74.4", "15.2.0",
+# "jq-1.8.2"). Kept raw because it is half of the download URL; strip a leading
+# "v" with ${tag#v} when you need the bare version.
+latest_tag() {
+  local repo="$1" tok="${GITHUB_TOKEN:-${GH_TOKEN:-}}" tag=""
+  # Unauthenticated api.github.com allows 60 requests/hour per IP and a bootstrap
+  # spends several, so use a token when one is lying around. Never insist on it:
+  # a *stale* token is answered with 401 where anonymous would have worked (the
+  # failure that broke the zellij build — mise sends gh's token and gives up), so
+  # an authenticated attempt that fails falls back to an anonymous one.
+  [ -z "$tok" ] && has_cmd gh && tok="$(gh auth token 2>/dev/null || true)"
+  if [ -n "$tok" ]; then
+    # stderr silenced: a failure here is not the user's problem, the anonymous
+    # attempt below is, and its errors are shown.
+    tag="$(curl -fsSL -H "Authorization: Bearer $tok" \
+             "https://api.github.com/repos/$repo/releases/latest" 2>/dev/null \
+             | grep -Po '"tag_name": "\K[^"]*' || true)"
+  fi
+  [ -n "$tag" ] || tag="$(curl -fsSL "https://api.github.com/repos/$repo/releases/latest" \
+                            | grep -Po '"tag_name": "\K[^"]*' || true)"
+  [ -n "$tag" ] || return 1
+  printf '%s\n' "$tag"
+}
+# install_deb <url> : apt-install a .deb from a URL. apt (not dpkg) so that
+# dependencies resolve; a .deb whose package name matches the distro's replaces
+# it in place and will not be silently downgraded by a later apt upgrade.
+install_deb() {
+  local url="$1" tmp rc=0
+  tmp="$(mktemp -d)"
+  if curl -fsSLo "$tmp/pkg.deb" "$url"; then
+    $SUDO apt-get install -y "$tmp/pkg.deb" || rc=1
+  else
+    err "download failed: $url"; rc=1
+  fi
+  rm -rf "$tmp"
+  return "$rc"
 }
 
 # --- config layering ----------------------------------------------------------
