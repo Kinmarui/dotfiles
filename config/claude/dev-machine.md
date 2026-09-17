@@ -13,6 +13,11 @@ This machine is the WSL2 dev box. Nothing here applies to the Ubuntu servers.
   dev servers and inbound mosh).
 - Windows exes run from bash; convert path arguments with `wslpath -w` when
   passing WSL paths to them.
+- Windows Terminal's `settings.json` lives under `/mnt/c/Users/<user>/AppData/
+  Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/`. Its
+  ctrl+shift+<digit> bindings open the server tabs; `wtkeys` renders that file
+  (`wtkeys -r` after editing it). Profiles are referenced by **name**, not GUID
+  — renaming a profile breaks its keybinding, so rename in both places.
 
 ## Connecting to servers
 

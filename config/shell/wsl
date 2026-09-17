@@ -1,0 +1,177 @@
+# WSL-only helpers — sourced from ./rc only when the kernel reports WSL, because
+# everything here reaches into /mnt/c. The rest of this directory is shared with
+# the Ubuntu servers, which have no Windows side.
+
+# --- Windows Terminal hotkeys ------------------------------------------------
+# ctrl+shift+<digit> opens a server tab (mosh + zellij attach); the map lives on
+# the Windows side, in Windows Terminal's settings.json. A second copy of it here
+# would rot the first time a profile moves, so `wtkeys` renders the real file.
+# /mnt/c is slow and this runs at shell startup, so the render is cached and
+# rebuilt only when settings.json is newer than the cache.
+#
+#   wtkeys            the full cheatsheet
+#   wtkeys -r         force a rebuild (also: after editing settings.json)
+#   WT_SETTINGS=...   point at a different settings.json
+
+_wt_cache="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/wt-keys.tsv"
+
+# _wt_settings : path of the live settings.json, or non-zero if there is none.
+_wt_settings() {
+  if [ -n "${WT_SETTINGS:-}" ]; then
+    [ -r "$WT_SETTINGS" ] && { printf '%s\n' "$WT_SETTINGS"; return 0; }
+    return 1
+  fi
+  local p
+  # Store-packaged Windows Terminal (stable + preview), then the unpackaged build.
+  for p in /mnt/c/Users/*/AppData/Local/Packages/Microsoft.WindowsTerminal*_8wekyb3d8bbwe/LocalState/settings.json \
+           /mnt/c/Users/*/AppData/Local/Microsoft/Windows\ Terminal/settings.json; do
+    [ -r "$p" ] && { printf '%s\n' "$p"; return 0; }
+  done
+  return 1
+}
+
+# _wt_build : (re)generate the cache. TSV, one row per binding:
+#   group  sortkey  keys  icon  name  short
+# group 1 = opens a profile, 2 = other binding, 3 = curated profile with no key.
+# Row 0 is metadata: the default profile's guid + name, used to decide whether
+# this tab is the default one.
+_wt_build() {
+  local src; src="$(_wt_settings)" || return 1
+  command -v jq >/dev/null 2>&1 || return 1
+  mkdir -p "${_wt_cache%/*}" || return 1
+  # Windows Terminal tolerates // comments in settings.json; jq does not. Drop
+  # whole-line comments only — anything else would eat the "https://" in $help.
+  sed 's|^[[:space:]]*//.*$||' "$src" | jq -r '
+    . as $s
+    | def prof($r): [ $s.profiles.list[]? | select(.guid == $r or .name == $r) ][0];
+      def ic($p): (($p.icon // "") | gsub("\ufe0f"; ""))
+                  | if test("[\\\\/]") or length > 2 then "" else . end;
+      def short($p): (($p.tabTitle // $p.name // "") | split(" \u00b7 ")[0]);
+      def cmd($a): ($a.command // {}) | if type == "object" then . else { "action": . } end;
+      def words($t): $t | gsub("(?<c>[A-Z])"; " " + (.c | ascii_downcase));
+      [ $s.keybindings[]? | select(.id != null and .keys != null) ] as $kb
+    | [ $kb[]
+        | . as $k
+        | [ $s.actions[]? | select(.id == $k.id) ][0] as $a
+        | select($a != null)
+        | cmd($a) as $c
+        | (if $c.action == "newTab" then prof($c.profile // "") else null end) as $p
+        | if $p != null
+          then [ "1", ($k.keys | sub("0$"; ":")), $k.keys, ic($p), ($p.name // ""), short($p) ]
+          else [ "2", ($k.keys | sub("0$"; ":")), $k.keys, "",
+                 ( if   $c.action == "switchToTab" then "switch to tab " + ((($c.index // 0) + 1) | tostring)
+                   elif $c.action == "moveTab"     then "move tab " + (if $c.direction == "forward" then "right" else "left" end)
+                   elif $c.action == "splitPane"   then "split pane"
+                   else words($c.action // $a.id // "?") end ), "" ]
+          end ] as $bound
+    | [ $bound[] | .[4] ] as $have
+    | [ $s.newTabMenu[]? | .. | objects | select(.type == "profile") | .profile ]
+      | map(prof(.)) | map(select(. != null)) | unique_by(.guid)
+      | [ .[] | select((.name // "") as $n | ($have | index($n)) == null)
+              | [ "3", "~" + (.name // ""), "", ic(.), (.name // ""), short(.) ] ] as $free
+    | prof($s.defaultProfile // "") as $dp
+    | [ [ "0", "", ($dp.guid // ""), "", ($dp.name // ""), "" ] ]
+      + ( ($bound + $free) | sort_by([ .[0], .[1] ]) )
+    | .[] | @tsv
+  ' > "$_wt_cache.$$" 2>/dev/null \
+    && [ -s "$_wt_cache.$$" ] \
+    && mv "$_wt_cache.$$" "$_wt_cache" \
+    && return 0
+  rm -f "$_wt_cache.$$"
+  return 1
+}
+
+# _wt_load [-r] : make sure the cache is present and newer than settings.json.
+_wt_load() {
+  [ "${1:-}" = "-r" ] && { _wt_build; return; }
+  local src
+  if [ -s "$_wt_cache" ]; then
+    src="$(_wt_settings)" || return 0          # cache outlives a missing Windows side
+    [ "$src" -nt "$_wt_cache" ] || return 0
+  fi
+  _wt_build
+}
+
+# wtkeys [-r] : the cheatsheet.
+wtkeys() {
+  case "${1:-}" in -r|--refresh) _wt_load -r || { echo "wtkeys: cannot read Windows Terminal settings.json" >&2; return 1; };; esac
+  [ -s "$_wt_cache" ] || _wt_load || { echo "wtkeys: cannot read Windows Terminal settings.json" >&2; return 1; }
+  local c=0; [ -t 1 ] && c=1
+  awk -F'\t' -v C="$c" '
+    BEGIN {
+      if (C) { B="\033[1m"; D="\033[2m"; H="\033[1;36m"; R="\033[0m" }
+      kw = 0
+    }
+    $1 == "0" { next }
+    { row[++n] = $0; if (length($3) > kw) kw = length($3) }
+    END {
+      kw += 2
+      printf "\n  %sWindows Terminal%s %s· hotkeys%s\n", H, R, D, R
+      # --- profiles
+      printf "\n  %sopen a tab%s\n", B, R
+      for (i = 1; i <= n; i++) { split(row[i], f, "\t"); if (f[1] != "1") continue
+        printf "    %s%-*s%s %s %s\n", H, kw, f[3], R, (f[4] == "" ? " " : f[4]), f[5] }
+      # --- curated profiles with no key
+      free = ""
+      for (i = 1; i <= n; i++) { split(row[i], f, "\t"); if (f[1] != "3") continue
+        free = free (free == "" ? "" : "   ") (f[4] == "" ? "" : f[4] " ") f[5] }
+      if (free != "") printf "\n  %sno hotkey%s %s(new-tab menu only)%s\n    %s\n", B, R, D, R, free
+      # --- everything else. The per-tab switchToTab bindings are one family
+      # (ctrl+alt+1, +2, ...), so fold them back into a single line.
+      printf "\n  %stabs, panes, window%s\n", B, R
+      lo = 0
+      for (i = 1; i <= n; i++) { split(row[i], f, "\t")
+        if (f[1] == "2" && f[5] ~ /^switch to tab [0-9]+$/) {
+          m = f[5]; sub(/^switch to tab /, "", m)
+          if (lo == 0) { lo = m; lokey = f[3] }
+          hi = m
+        } }
+      if (lo != 0) {
+        k = lokey
+        if (lo != hi) { sub(/[0-9]+$/, "", k); k = k lo "-" hi }
+        printf "    %s%-*s%s switch to tab %s%s\n", H, kw, k, R, lo, (lo == hi ? "" : "-" hi)
+      }
+      for (i = 1; i <= n; i++) { split(row[i], f, "\t"); if (f[1] != "2") continue
+        if (f[5] ~ /^switch to tab [0-9]+$/) continue
+        printf "    %s%-*s%s %s\n", H, kw, f[3], R, f[5] }
+      printf "\n  %sctrl+t / ctrl+w are unbound on purpose %s—%s zellij owns them inside a tab%s\n\n", D, D, D, R
+    }
+  ' "$_wt_cache"
+}
+
+# _wt_hint : the same map, folded into three lines, for a fresh default tab.
+_wt_hint() {
+  [ -s "$_wt_cache" ] || _wt_load || return 0
+  # Only the default profile gets the hint; the server tabs know what they are.
+  local dp; dp="$(awk -F'\t' '$1 == "0" { print $3; exit }' "$_wt_cache")"
+  [ -n "$dp" ] && [ "${WT_PROFILE_ID:-}" = "$dp" ] || return 0
+  local c=0; [ -t 1 ] && c=1
+  awk -F'\t' -v C="$c" '
+    BEGIN { if (C) { D="\033[2m"; H="\033[36m"; B="\033[1m"; R="\033[0m" }; w = 0 }
+    $1 == "1" && $3 ~ /^ctrl\+shift\+[0-9]$/ {
+      k = $3; sub(/^ctrl\+shift\+/, "", k)
+      key[++n] = k; icon[n] = ($4 == "" ? " " : $4); nm[n] = $6
+      if (length($6) > w) w = length($6)
+    }
+    END {
+      if (n == 0) exit
+      printf "\n %sctrl+shift+…%s\n", D, R
+      for (i = 1; i <= n; i++) {
+        if ((i - 1) % 5 == 0) printf "  "
+        eol = (i % 5 == 0 || i == n)
+        printf " %s%s%s %s %s", B, key[i], R, icon[i], (eol ? nm[i] : sprintf("%-*s", w + 1, nm[i]))
+        if (eol) printf "\n"
+      }
+      printf "  %swtkeys%s%s for the full map%s\n\n", H, R, D, R
+    }
+  ' "$_wt_cache"
+}
+
+# A fresh tab in the default profile gets the grid, once. Skipped in the server
+# profiles (their WT_PROFILE_ID differs), inside zellij (its tab bar is the hint
+# there), in non-interactive shells, and in nested shells via the exported guard.
+if [[ $- == *i* ]] && [ -z "${_WT_HINT_SHOWN:-}" ] && [ -z "${ZELLIJ:-}" ] \
+   && [ -n "${WT_PROFILE_ID:-}" ]; then
+  export _WT_HINT_SHOWN=1
+  _wt_hint
+fi
