@@ -17,8 +17,11 @@ alias decompress='tar -xzf'
 #     field 2  <resource-group>  the VM's resource group  (optional: defaults to "<vm>-rg")
 #     field 3  [connect-host]    mosh/ssh target, only if it differs from <vm>
 # So the usual entry is just "<vm> <resource-group>" (as in the examples below);
-# add a 3rd field only when the host you dial isn't the VM name. Without the map,
-# a name is treated as a literal VM (RG "<name>-rg"), so dmosh still works.
+# add a 3rd field only when the host you dial isn't the VM name -- and it only
+# buys you anything when ~/.ssh/config has a `Host` block for that name, since a
+# name ssh doesn't know is bypassed in favour of the VM's Azure public IP.
+# Without the map, a name is treated as a literal VM (RG "<name>-rg"), so dmosh
+# still works.
 declare -gA DMOSH_HOSTS 2>/dev/null
 
 # _dmosh_target <name> : echo "<vm> <resource-group> <connect-host>" for <name>.
@@ -30,6 +33,45 @@ _dmosh_target() {
   local spec="${DMOSH_HOSTS[$1]:-}" vm rg host
   if [ -n "$spec" ]; then read -r vm rg host <<<"$spec"; else vm="$1"; fi
   printf '%s %s %s\n' "$vm" "${rg:-${vm}-rg}" "${host:-$vm}"
+}
+
+# _dmosh_ssh_configured <host> : true when ssh's own config resolves <host> to
+# something other than itself -- i.e. a `Host` block matched (an explicit
+# HostName, or a %h expansion) and carries its User/Port/IdentityFile along.
+_dmosh_ssh_configured() {
+  local hn
+  hn="$(ssh -G "$1" 2>/dev/null | awk '$1 == "hostname" { print $2; exit }')"
+  [ -n "$hn" ] && [ "$hn" != "$1" ]
+}
+
+# _dmosh_public_ip <vm> <resource-group> : the VM's public IP, straight from
+# Azure. Empty when the VM has none (or az is unhappy).
+_dmosh_public_ip() {
+  az vm list-ip-addresses -g "$2" -n "$1" -o tsv 2>/dev/null \
+    --query "[0].virtualMachine.network.publicIpAddresses[0].ipAddress"
+}
+
+# _dmosh_connect_target <vm> <resource-group> <host> : echo a target that
+# ssh/mosh can actually dial for this VM.
+#
+# <host> wins when ~/.ssh/config defines it: that entry is the user's own and
+# brings its User/Port/IdentityFile with it. Otherwise the bare name is NOT
+# handed to the resolver, because a company domain that answers unknown names
+# with a wildcard record (a CDN, say) turns `mosh <name>` into a connection to
+# the wrong host -- which fails late and cryptically, as
+# `kex_exchange_identification: Connection closed by remote host`. Azure knows
+# the VM's real address and we are already talking to it for the NSG rule, so
+# ask it and dial "<az user>@<ip>" instead.
+_dmosh_connect_target() {
+  local vm="$1" rg="$2" host="$3" ip
+  if _dmosh_ssh_configured "$host"; then printf '%s\n' "$host"; return 0; fi
+  ip="$(_dmosh_public_ip "$vm" "$rg")"
+  if [ -z "$ip" ]; then
+    echo "no public IP for VM '${vm}' in '${rg}'; dialling '${host}' as-is" >&2
+    printf '%s\n' "$host"
+    return 1
+  fi
+  printf '%s@%s\n' "${AZ_SSH_USER:-$USER}" "$ip"
 }
 
 # az_vm_allow_current_ip <host> [resource-group] : point each rule in AZ_IP_RULES
@@ -80,16 +122,21 @@ az_vm_allow_current_ip() {
 
 # dmosh <host> [mosh args...] : open the current IP on the target's NSG, then
 # mosh to it. A DMOSH_HOSTS alias resolves to its VM/RG/connect-host; any other
-# name is taken as the VM (RG "<name>-rg", connect-host <name>).
+# name is taken as the VM (RG "<name>-rg", connect-host <name>). The host is
+# dialled as written when ~/.ssh/config defines it, else by its Azure public IP
+# (see _dmosh_connect_target -- a bare name may not resolve, or worse, resolve
+# to the wrong machine).
 dmosh() {
   local name="$1"
   [ -n "$name" ] || { echo "usage: dmosh <host> [mosh args...]" >&2; return 2; }
   shift
   command -v mosh >/dev/null 2>&1 || { echo "mosh not installed" >&2; return 1; }
-  local vm rg host
+  local vm rg host target
   read -r vm rg host <<<"$(_dmosh_target "$name")"
   az_vm_allow_current_ip "$vm" "$rg" || echo "dmosh: whitelist failed, connecting anyway" >&2
-  mosh "$host" "$@"
+  target="$(_dmosh_connect_target "$vm" "$rg" "$host")"
+  echo "connecting to ${target}"
+  mosh "$target" "$@"
 }
 
 # azzh <host> [ssh args...] : Azure-native SSH (AAD/certificate auth via
