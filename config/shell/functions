@@ -120,6 +120,24 @@ az_vm_allow_current_ip() {
   [ "$found" = 1 ] || { echo "no NSG found in resource group '${rg}'" >&2; return 1; }
 }
 
+# az_allow_all : repoint AZ_IP_RULES at the current public IP on every resource
+# group named in DMOSH_HOSTS, one pass per unique group. Run this after this
+# machine's public IP changes; plain `mosh <host>` then works again without the
+# per-connect az round-trip that dmosh/azzh pay.
+az_allow_all() {
+  [ "${#DMOSH_HOSTS[@]}" -gt 0 ] || { echo "DMOSH_HOSTS is empty (private overlay not loaded?)" >&2; return 1; }
+  local -A seen=()
+  local alias vm rg host rc=0
+  while IFS= read -r alias; do
+    read -r vm rg host <<<"$(_dmosh_target "$alias")"
+    [ -n "${seen[$rg]:-}" ] && continue     # one pass per resource group
+    seen[$rg]=1
+    echo "== ${alias} (${rg})"
+    az_vm_allow_current_ip "$vm" "$rg" || rc=1
+  done < <(printf '%s\n' "${!DMOSH_HOSTS[@]}" | sort)
+  return $rc
+}
+
 # dmosh <host> [mosh args...] : open the current IP on the target's NSG, then
 # mosh to it. A DMOSH_HOSTS alias resolves to its VM/RG/connect-host; any other
 # name is taken as the VM (RG "<name>-rg", connect-host <name>). The host is
