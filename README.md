@@ -43,7 +43,7 @@ bootstrap.sh        entry point
 manifest.conf       which apps to install by default
 lib/common.sh       shared shell helpers
 install/<app>.sh    one installer per app (install + apply config)
-config/<app>/       configuration this repo ships (e.g. zellij)
+config/<app>/       configuration this repo ships (e.g. zellij, nvim)
 ```
 
 ### Usage
