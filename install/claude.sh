@@ -2,13 +2,15 @@
 # Claude Code — native installer (no node required). Installs to ~/.local/bin.
 
 # Install (skipped in --config-only or when already present).
+status="already installed"
 if [ "${CONFIG_ONLY:-0}" != "1" ] && ! has_cmd claude; then
   curl -fsSL https://claude.ai/install.sh | bash
+  status="installed"
 fi
 
 bindir="$HOME/.local/bin"
 [ -x "$bindir/claude" ] || { warn "claude not found at $bindir after install"; return 0; }
-ok "claude installed ($("$bindir/claude" --version 2>/dev/null))"
+ok "claude $status ($("$bindir/claude" --version 2>/dev/null))"
 
 # Ensure ~/.local/bin is on PATH for future shells.
 case ":$PATH:" in
