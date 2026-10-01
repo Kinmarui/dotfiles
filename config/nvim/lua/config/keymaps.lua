@@ -32,3 +32,24 @@ end, {
   bang = true,
   desc = "Toggle auto format (! = buffer)",
 })
+
+vim.keymap.set("n", "<leader>fd", function()
+  local fname = vim.fn.expand("%:p")
+  local ext = vim.fn.expand("%:e")
+  local newname = fname:gsub("%.lua$", "_copy.lua")
+  if fname == newname then
+    newname = fname .. ".copy"
+  end
+  vim.cmd("write")
+  vim.fn.system({ "cp", fname, newname })
+  vim.cmd("edit " .. newname)
+end, { desc = "Duplicate current config file" })
+
+if vim.fn.executable("lazygit") == 1 then
+  map("n", "<leader>lg", function()
+    Snacks.lazygit({ cwd = LazyVim.root.git() })
+  end, { desc = "Lazygit (Root Dir)" })
+  map("n", "<leader>lG", function()
+    Snacks.lazygit()
+  end, { desc = "Lazygit (cwd)" })
+end
