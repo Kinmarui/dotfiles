@@ -41,3 +41,10 @@ command -v lazydocker >/dev/null 2>&1 && alias lzd='lazydocker'
 alias gcm='git commit -m'
 alias gcam='git commit -a -m'
 alias gcad='git commit -a --amend'
+
+# Codex CLI: keep the login and config per project in "$PWD/.codex" instead of
+# ~/.codex, so each workspace can hold its own account. Run `codex login
+# --device-auth` once inside the project. Use `command codex` for ~/.codex.
+if command -v codex >/dev/null 2>&1; then
+  alias codex='CODEX_HOME="$PWD/.codex" codex'
+fi
