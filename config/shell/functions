@@ -138,8 +138,16 @@ az_allow_all() {
   return $rc
 }
 
-# dmosh <host> [mosh args...] : open the current IP on the target's NSG, then
-# mosh to it. A DMOSH_HOSTS alias resolves to its VM/RG/connect-host; any other
+# _dmosh_allow <vm> <resource-group> <caller> : the whitelist step dmosh/azzh run
+# before connecting. DMOSH_SKIP_ALLOW=1 skips it -- for callers (e.g. terminal
+# hotkey profiles) that rely on `az_allow_all` having been run instead.
+_dmosh_allow() {
+  [ "${DMOSH_SKIP_ALLOW:-0}" = 1 ] && return 0
+  az_vm_allow_current_ip "$1" "$2" || echo "$3: whitelist failed, connecting anyway" >&2
+}
+
+# dmosh <host> [mosh args...] : open the current IP on the target's NSG
+# (unless DMOSH_SKIP_ALLOW=1), then mosh to it. A DMOSH_HOSTS alias resolves to its VM/RG/connect-host; any other
 # name is taken as the VM (RG "<name>-rg", connect-host <name>). The host is
 # dialled as written when ~/.ssh/config defines it, else by its Azure public IP
 # (see _dmosh_connect_target -- a bare name may not resolve, or worse, resolve
@@ -151,14 +159,15 @@ dmosh() {
   command -v mosh >/dev/null 2>&1 || { echo "mosh not installed" >&2; return 1; }
   local vm rg host target
   read -r vm rg host <<<"$(_dmosh_target "$name")"
-  az_vm_allow_current_ip "$vm" "$rg" || echo "dmosh: whitelist failed, connecting anyway" >&2
+  _dmosh_allow "$vm" "$rg" dmosh
   target="$(_dmosh_connect_target "$vm" "$rg" "$host")"
   echo "connecting to ${target}"
   mosh "$target" "$@"
 }
 
 # azzh <host> [ssh args...] : Azure-native SSH (AAD/certificate auth via
-# `az ssh vm`) to the target, whitelisting the current IP on its NSG first. A
+# `az ssh vm`) to the target, whitelisting the current IP on its NSG first
+# (unless DMOSH_SKIP_ALLOW=1). A
 # DMOSH_HOSTS alias resolves to its VM/RG; any other name is taken as the VM
 # (RG "<name>-rg").
 azzh() {
@@ -168,6 +177,6 @@ azzh() {
   command -v az >/dev/null 2>&1 || { echo "az CLI not installed" >&2; return 1; }
   local vm rg host
   read -r vm rg host <<<"$(_dmosh_target "$name")"
-  az_vm_allow_current_ip "$vm" "$rg" || echo "azzh: whitelist failed, connecting anyway" >&2
+  _dmosh_allow "$vm" "$rg" azzh
   az ssh vm -g "$rg" -n "$vm" --local-user "${AZ_SSH_USER:-$USER}" "$@"
 }
