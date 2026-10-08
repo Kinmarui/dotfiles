@@ -1,0 +1,21 @@
+# Windows-side WSL2 settings — installed to %UserProfile%\.wslconfig by
+# install/wsl.sh (copied, not linked: Windows reads it before the VM boots).
+# Takes effect after `wsl --shutdown` from Windows.
+
+[wsl2]
+# Forward DNS queries to the Windows resolver so WSL honors
+# OpenVPN split-DNS and Tailscale MagicDNS instead of hardcoded servers.
+dnsTunneling=true
+# How much memory to assign to the WSL2 VM.
+memory=8GB
+# How many processors to assign to the WSL2 VM.
+processors=6
+
+[wslg]
+WESTON_DONT_MOVE_MAXIMIZED_WINDOW=true
+
+[experimental]
+# Hand Linux page cache back to Windows once the VM goes idle, so vmmemWSL
+# shrinks instead of sitting at the memory cap. gradual (vs dropCache) keeps
+# hot files cached; it also switches the distro to cgroup v2 only.
+autoMemoryReclaim=gradual

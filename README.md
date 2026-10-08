@@ -64,6 +64,18 @@ Installers are **idempotent** — re-running skips what's already present.
 2. If it ships config, put it in `config/<name>/` and apply it from the script.
 3. Add `<name>` to `manifest.conf`.
 
+## WSL2
+
+On WSL the `wsl` app copies `config/wsl/wslconfig` to `%UserProfile%\.wslconfig`
+(memory/CPU caps, DNS tunneling, `autoMemoryReclaim` so `vmmemWSL` gives idle
+page cache back to Windows), and `config/wsl/wsl.conf` to `/etc/wsl.conf`
+(WSL-generated `resolv.conf`, so DNS goes through Windows and Tailscale
+MagicDNS / VPN split-DNS names resolve inside WSL; a leftover static
+`resolv.conf` is removed). Both are copied rather than symlinked — Windows reads
+`.wslconfig` before the VM exists, `/etc` is root's — so after editing run
+`./bootstrap.sh --config-only wsl`, then `wsl --shutdown` from Windows. Other
+hosts skip it.
+
 ## Shell enhancements
 
 The `shell` app (`config/shell/`, adapted from omakub's bash defaults,
