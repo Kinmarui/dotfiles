@@ -93,6 +93,10 @@ sat installed but dormant.
   `batcat`/`fdfind` (name clashes with other packages); the aliases resolve to
   whichever name is actually present.
 - **Functions** — `compress`/`decompress` (tar.gz).
+- **WSL only** (`config/shell/wsl`, sourced only when the kernel reports WSL)
+  — `wtkeys` prints a cheatsheet of the Windows Terminal hotkeys, read from
+  Windows Terminal's own `settings.json` rather than a copy that could rot; a
+  fresh tab in the default profile shows the short version once.
 
 Config is symlinked into `~/.config/dotfiles/shell` (private overlay wins,
 same as every other app — see below) and sourced from `~/.bashrc` via one

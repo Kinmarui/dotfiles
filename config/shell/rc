@@ -5,6 +5,11 @@ d="$(dirname "${BASH_SOURCE[0]}")"
 source "$d/aliases"
 source "$d/functions"
 source "$d/init"
+# WSL-only helpers (Windows Terminal hotkey cheatsheet). Everything in there
+# reaches into /mnt/c, which the Ubuntu servers sharing this dir do not have.
+if [ -n "${WSL_DISTRO_NAME:-}" ] || grep -qsi microsoft /proc/version; then
+  source "$d/wsl"
+fi
 # Private overlay fragment (username, server maps, tokens) — delivered into this
 # same dir by the dotfiles-private overlay; never present in the public repo.
 [ -f "$d/private.sh" ] && source "$d/private.sh"
