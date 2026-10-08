@@ -99,7 +99,7 @@ pkg_install() {
 # --- upstream release fetching ------------------------------------------------
 # Distro packages for these tools are often years behind (Ubuntu 22.04 ships fzf
 # 0.29, bat 0.19, jq 1.6), so installers upgrade from upstream when `outdated`
-# says so.
+# says so. Both helpers stage into a temp dir and clean up after themselves.
 #
 # latest_tag <owner/repo> : newest release tag, verbatim ("v0.74.4", "15.2.0",
 # "jq-1.8.2"). Kept raw because it is half of the download URL; strip a leading
@@ -123,6 +123,20 @@ latest_tag() {
                             | grep -Po '"tag_name": "\K[^"]*' || true)"
   [ -n "$tag" ] || return 1
   printf '%s\n' "$tag"
+}
+# install_deb <url> : apt-install a .deb from a URL. apt (not dpkg) so that
+# dependencies resolve; a .deb whose package name matches the distro's replaces
+# it in place and will not be silently downgraded by a later apt upgrade.
+install_deb() {
+  local url="$1" tmp rc=0
+  tmp="$(mktemp -d)"
+  if curl -fsSLo "$tmp/pkg.deb" "$url"; then
+    $SUDO apt-get install -y "$tmp/pkg.deb" || rc=1
+  else
+    err "download failed: $url"; rc=1
+  fi
+  rm -rf "$tmp"
+  return "$rc"
 }
 
 # --- config layering ----------------------------------------------------------

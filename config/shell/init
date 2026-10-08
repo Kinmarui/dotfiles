@@ -5,18 +5,37 @@ if command -v mise &> /dev/null; then
 fi
 
 if command -v zoxide &> /dev/null; then
+  # `alias cd='z'` MUST be defined after this eval, never before it. Bash expands
+  # aliases when a function body is *parsed*, and zoxide's own helper is
+  # `_z_cd() { cd "$@"; }` — parsed with a `cd` alias in scope it becomes
+  # `z "$@"`, so cd -> z -> _z_cd -> z -> ... recurses until the shell dies of
+  # SIGSEGV (zellij shows "[process exited with code 139]" and you never move).
+  # Old zoxide (0.4.x, Ubuntu 22.04) is vulnerable; newer versions emit
+  # `builtin cd` and are not — keep the order anyway.
+  unalias cd 2>/dev/null || true
   eval "$(zoxide init bash)"
+  alias cd='z'
 fi
 
 if command -v fzf &> /dev/null; then
-  if [[ -f /usr/share/bash-completion/completions/fzf ]]; then
-    source /usr/share/bash-completion/completions/fzf
-  fi
-  if [[ -f /usr/share/doc/fzf/examples/key-bindings.bash ]]; then
-    source /usr/share/doc/fzf/examples/key-bindings.bash
-  fi
-  # brew (macOS) ships fzf's shell integration under its own prefix instead.
-  if command -v brew &> /dev/null && [[ -f "$(brew --prefix)/opt/fzf/shell/key-bindings.bash" ]]; then
-    source "$(brew --prefix)/opt/fzf/shell/key-bindings.bash"
+  # fzf >= 0.48 prints its own completion + key bindings, which is the only
+  # portable source: the completion/key-binding *files* below are added by
+  # distro packaging (and land in different places per distro), while the
+  # upstream .deb that install/terminal-tools.sh uses on old releases contains
+  # nothing but the binary — sourcing files alone loses Ctrl-R/Ctrl-T/Alt-C
+  # the moment fzf comes from upstream. Ask the binary first, fall back to files.
+  if fzf --bash &> /dev/null; then
+    eval "$(fzf --bash)"
+  else
+    if [[ -f /usr/share/bash-completion/completions/fzf ]]; then
+      source /usr/share/bash-completion/completions/fzf
+    fi
+    if [[ -f /usr/share/doc/fzf/examples/key-bindings.bash ]]; then
+      source /usr/share/doc/fzf/examples/key-bindings.bash
+    fi
+    # brew (macOS) ships fzf's shell integration under its own prefix instead.
+    if command -v brew &> /dev/null && [[ -f "$(brew --prefix)/opt/fzf/shell/key-bindings.bash" ]]; then
+      source "$(brew --prefix)/opt/fzf/shell/key-bindings.bash"
+    fi
   fi
 fi
